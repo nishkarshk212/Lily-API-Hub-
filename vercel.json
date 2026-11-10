@@ -1,10 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "buildCommand": "sh frontend/build-config.sh",
   "outputDirectory": "frontend",
   "rewrites": [
     {
-      "source": "/((?!css/|js/|config\\.js|favicon\\.svg|_headers|_redirects).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
