@@ -1,6 +1,7 @@
 """Idempotent database seeding for default plans, master gateway config, and initial admin."""
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -167,5 +168,9 @@ def seed_initial_data(db: Session) -> None:
                 )
             )
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Another worker/serverless cold start seeded concurrently.
+        db.rollback()
 

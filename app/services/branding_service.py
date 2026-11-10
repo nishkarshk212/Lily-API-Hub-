@@ -15,6 +15,10 @@ def get_effective_branding(db: Optional[Session] = None, settings: Optional[Sett
         try:
             row = db.get(SiteBrandingConfig, 1)
         except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
             row = None
 
     app_name = (row.app_name.strip() if row and row.app_name.strip() else cfg.APP_NAME)

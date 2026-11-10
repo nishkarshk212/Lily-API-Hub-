@@ -161,4 +161,31 @@ def test_admin_branding_override_and_reset(client):
     assert client.get("/api/public/overview").json()["brand"] == default_app_name
 
 
+def test_vercel_readonly_cwd_fallback_and_healthz(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.core.config import Settings, normalize_database_url
+    from api.index import app as vercel_app
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    assert normalize_database_url("") == "sqlite:////tmp/lily_hub.db"
+    assert normalize_database_url("sqlite:///./lily_hub.db") == "sqlite:////tmp/lily_hub.db"
+    assert (
+        normalize_database_url("postgres://u:p@db.neon.tech:5432/neondb?sslmode=require")
+        == "postgresql+psycopg://u:p@db.neon.tech:5432/neondb?sslmode=require"
+    )
+    vercel_cfg = Settings(_env_file=None)
+    assert vercel_cfg.DATABASE_URL == "sqlite:////tmp/lily_hub.db"
+    assert len(vercel_cfg.SECRET_KEY) >= 20
+
+    with TestClient(vercel_app) as vc:
+        hz = vc.get("/healthz")
+        assert hz.status_code == 200
+        assert hz.json()["status"] == "ok"
+        assert hz.json()["database"] == "connected"
+        assert vc.get("/").status_code == 200
+
+
+
 

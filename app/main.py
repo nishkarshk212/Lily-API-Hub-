@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 import html
+import os
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
@@ -11,8 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.database import SessionLocal, get_db, init_db
-from app.core.seed import seed_initial_data
+from app.core.database import ensure_db_ready, get_db, get_db_init_status
 from app.routers import admin, auth, gateway, keys, payments, plans, playground, public
 from app.services.branding_service import get_effective_branding
 
@@ -21,9 +21,9 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    init_db()
-    with SessionLocal() as db:
-        seed_initial_data(db)
+    ok, err = ensure_db_ready()
+    if not ok and os.getenv("VERCEL") != "1":
+        raise RuntimeError(f"Database initialization failed: {err}")
     yield
 
 
@@ -63,11 +63,24 @@ def create_app() -> FastAPI:
 
     @app.get("/healthz")
     def healthz():
-        return {"status": "ok", "service": cfg.APP_NAME, "company": cfg.COMPANY_NAME}
+        db_ok, db_err = get_db_init_status()
+        if not db_ok and os.getenv("VERCEL") == "1":
+            db_ok, db_err = ensure_db_ready()
+        payload = {
+            "status": "ok" if db_ok else "degraded",
+            "service": cfg.APP_NAME,
+            "company": cfg.COMPANY_NAME,
+            "database": "connected" if db_ok else "unavailable",
+        }
+        if not db_ok and db_err:
+            payload["database_error_type"] = db_err.split(":", 1)[0]
+        return payload
 
     if FRONTEND_DIR.exists():
-        app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
-        app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
+        if (FRONTEND_DIR / "css").exists():
+            app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
+        if (FRONTEND_DIR / "js").exists():
+            app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
 
         @app.get("/favicon.svg", include_in_schema=False)
         @app.get("/favicon.ico", include_in_schema=False)

@@ -6,17 +6,20 @@ import secrets
 from typing import List
 
 from fastapi import Request
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def normalize_database_url(url: str) -> str:
     cleaned = (url or "").strip()
+    if os.getenv("VERCEL") == "1" and (not cleaned or cleaned.startswith("sqlite:///./")):
+        # Vercel /var/task is read-only; fall back to writable /tmp when no external DB is configured.
+        return "sqlite:////tmp/lily_hub.db"
     if cleaned.startswith("postgres://"):
         return "postgresql+psycopg://" + cleaned[len("postgres://"):]
     if cleaned.startswith("postgresql://"):
         return "postgresql+psycopg://" + cleaned[len("postgresql://"):]
-    return cleaned
+    return cleaned or "sqlite:///./lily_hub.db"
 
 
 class Settings(BaseSettings):
@@ -40,12 +43,12 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    SECRET_KEY: str = ""
+    SECRET_KEY: str = Field(default="", validate_default=True)
     ENCRYPTION_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     SESSION_EXPIRE_HOURS: int = 168  # 7 days
 
-    DATABASE_URL: str = "sqlite:///./lily_hub.db"
+    DATABASE_URL: str = Field(default="sqlite:///./lily_hub.db", validate_default=True)
 
     # Master / Upstream Gateway settings
     GATEWAY_MODE: str = "hybrid"  # builtin | proxy | hybrid
@@ -115,8 +118,14 @@ class Settings(BaseSettings):
 
     def resolve_api_base_url(self, request: Request) -> str:
         if self.APP_ENV == "development":
-            return f"{str(request.base_url).rstrip('/')}/v1"
-        vercel_url = os.getenv("VERCEL_URL", "").strip()
+            base = str(request.base_url).rstrip("/")
+            if os.getenv("VERCEL") == "1" and base.startswith("http://"):
+                proto = request.headers.get("x-forwarded-proto", "https").split(",")[0].strip() or "https"
+                host = request.headers.get("host")
+                if host:
+                    return f"{proto}://{host}/v1"
+            return f"{base}/v1"
+        vercel_url = (os.getenv("VERCEL_PROJECT_PRODUCTION_URL") or os.getenv("VERCEL_URL") or "").strip()
         if vercel_url and self.APP_PUBLIC_URL.startswith("http://localhost"):
             return f"https://{vercel_url}/v1"
         return f"{self.APP_PUBLIC_URL.rstrip('/')}/v1"
