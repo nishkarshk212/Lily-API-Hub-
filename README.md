@@ -270,9 +270,11 @@ Production blueprints are included out of the box—see [**`DEPLOYMENT_GUIDE.md`
 | **Frontend (`frontend/`)** | **Vercel** or **Cloudflare Pages** | Root Directory: `frontend` (`vercel.json`, `_redirects`) | Pure static HTML/CSS/ES6 CDN — zero cold starts, global edge cache, free SSL |
 | **Backend (`backend/`)** | **Render** (`render.yaml`) or **Railway** (`railway.toml`) | Root Directory: `backend` (`Dockerfile`) | Stateful persistent Python container for rate limits, webhooks, PostgreSQL & upstream proxying |
 | **Upstream API** | **Cloudflare Workers** | Linked via `UPSTREAM_API_BASE_URL` + `MASTER_API_KEY` | Low-latency edge API origin protected behind Lily Gateway |
-| **Full Stack Self-Host** | **Docker Compose** | [`docker-compose.yml`](./docker-compose.yml) | Runs PostgreSQL 15 + FastAPI (`:8000`) + Nginx Frontend (`:3000`) cleanly together |
+| **VPS All-in-One** | **Ubuntu VPS (Docker + Nginx TLS)** | [`docker-compose.yml`](./docker-compose.yml) · [`deploy/nginx.conf`](./deploy/nginx.conf) | Runs PostgreSQL 15 + FastAPI (`:8000`) + Same-Origin Nginx Proxy (`:3000`) cleanly together |
 
-> **Connecting Frontend → Backend:** Set `API_BASE_URL=https://your-backend.onrender.com` in Vercel/Cloudflare Pages (`sh build-config.sh`), and set `FRONTEND_URL=https://your-site.vercel.app` + `CORS_ORIGINS` on your Backend so cookies, Bearer sessions, Google OAuth redirects, email links & receipts work across domains seamlessly.
+> **Connecting Split Frontend → Backend:** Set `API_BASE_URL=https://your-backend-url` in Vercel/Cloudflare Pages (`sh build-config.sh`), and set `FRONTEND_URL=https://your-frontend-url` + `CORS_ORIGINS` on your Backend so cookies, Bearer sessions, Google OAuth redirects, email links & receipts work seamlessly.
+
+> **VPS Quick Launch:** `cp backend/.env.example backend/.env && export POSTGRES_PASSWORD="strong_password" && docker compose up -d --build` (see [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) Section 3 for Nginx + Certbot HTTPS setup).
 
 </details>
 
@@ -318,7 +320,8 @@ pytest -v
 │   ├── Dockerfile · .dockerignore · railway.toml
 │   └── requirements.txt · pyproject.toml · .env.example
 ├── docs/assets/                     # Custom animated SVG banners & architecture visuals
-├── docker-compose.yml               # Local/VPS 3-container setup (Postgres + Backend + Nginx Frontend)
+├── deploy/nginx.conf                # Unified Nginx proxy config for VPS / Docker Compose
+├── docker-compose.yml               # VPS / Local 3-container stack (Postgres + Backend + Nginx Frontend)
 ├── render.yaml                      # Root Render Blueprint targeting backend/Dockerfile
 ├── vercel.json                      # Static frontend Vercel deploy config
 ├── DEPLOYMENT_GUIDE.md              # Cloud deployment checklist
