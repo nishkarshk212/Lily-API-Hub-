@@ -1,24 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 2,
-  "builds": [
+  "buildCommand": "sh frontend/build-config.sh",
+  "outputDirectory": "frontend",
+  "rewrites": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "includeFiles": [
-          "app/**",
-          "frontend/**"
-        ]
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/index.py"
+      "source": "/((?!css/|js/|config\\.js|favicon\\.svg|_headers|_redirects).*)",
+      "destination": "/index.html"
     }
   ]
 }
-

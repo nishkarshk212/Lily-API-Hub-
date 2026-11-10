@@ -2,7 +2,7 @@
  * Separate Admin Portal: Dedicated Admin Login + Full Colorful Control Center.
  */
 
-import { api, esc, formatDate, formatInr, formatNum, getBrand, showToast, statusBadge } from "../api.js";
+import { api, esc, formatDate, formatInr, formatNum, getBrand, openAuthenticatedUrl, setAuthToken, showToast, statusBadge } from "../api.js";
 import { bindChartTooltips, renderTrafficChart } from "../components/charts.js";
 import { openConfirmModal, openPlanEditorModal } from "../components/modals.js";
 
@@ -68,6 +68,7 @@ export function renderAdminLoginPage(state, handlers) {
         email: document.getElementById("adm-email").value,
         password: document.getElementById("adm-password").value,
       });
+      if (res.access_token) setAuthToken(res.access_token);
       state.user = res.user;
       showToast("Administrator authenticated.", "success");
       handlers.navigate("#admin");
@@ -392,7 +393,7 @@ function renderPaymentsTab(paymentsRes, paymentFilter, paymentSearch) {
                       <td>${esc(p.verified_via || "—")}</td>
                       <td>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                          <a class="btn btn-secondary btn-sm" href="/api/payments/${esc(p.id)}/receipt?format=html" target="_blank">Receipt</a>
+                          <button type="button" class="btn btn-secondary btn-sm" data-adm-receipt="${esc(p.id)}">Receipt</button>
                           ${p.status === "pending" ? `<button class="btn btn-primary btn-sm" data-adm-reconcile="${esc(p.id)}">Reconcile</button>` : ""}
                           ${p.status === "successful" ? `<button class="btn btn-danger btn-sm" data-adm-refund="${esc(p.id)}">Mark Refunded</button>` : ""}
                         </div>
@@ -962,6 +963,16 @@ export async function renderAdminDashboardPage(state, handlers) {
       paymentSearch = e.target.value;
       draw();
       document.getElementById("adm-pay-search")?.focus();
+    });
+
+    root.querySelectorAll("[data-adm-receipt]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await openAuthenticatedUrl(`/api/payments/${btn.getAttribute("data-adm-receipt")}/receipt?format=html`);
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      });
     });
 
     root.querySelectorAll("[data-adm-reconcile]").forEach((btn) => {

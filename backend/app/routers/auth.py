@@ -1,7 +1,7 @@
 """Authentication, Google OAuth2, email verification, password reset, profile, and session routes."""
 
 from typing import Tuple
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -66,6 +66,7 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     set_session_cookie(response, jwt_token, cfg)
     result = {
         "user": UserOut.model_validate(user),
+        "access_token": jwt_token,
         "message": "Account created. Please verify your email using the verification link sent to your inbox.",
     }
     if not cfg.is_production and not cfg.SMTP_HOST.strip():
@@ -79,7 +80,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     ua = request.headers.get("user-agent", "")
     user, jwt_token = authenticate_user(db, payload.email, payload.password, ip, ua, require_admin=False)
     set_session_cookie(response, jwt_token)
-    return {"user": UserOut.model_validate(user), "message": "Signed in successfully."}
+    return {"user": UserOut.model_validate(user), "access_token": jwt_token, "message": "Signed in successfully."}
 
 
 @router.post("/logout")
@@ -263,7 +264,10 @@ def revoke_session(
 
 
 @router.get("/google/login")
-def google_oauth_login(next_route: str = Query(default="/#dashboard")):
+def google_oauth_login(
+    next_route: str = Query(default="/#dashboard"),
+    frontend_origin: str = Query(default=""),
+):
     cfg = get_settings()
     if not cfg.google_oauth_configured:
         raise HTTPException(
@@ -271,7 +275,11 @@ def google_oauth_login(next_route: str = Query(default="/#dashboard")):
             detail="Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.",
         )
 
-    state = create_signed_state({"next": next_route}, salt="google-oauth-state", settings=cfg)
+    clean_fe = frontend_origin.strip().rstrip("/")
+    allowed_origins = set(cfg.cors_origin_list) | {cfg.effective_frontend_url}
+    safe_fe = clean_fe if (clean_fe and clean_fe in allowed_origins) else ""
+
+    state = create_signed_state({"next": next_route, "fe": safe_fe}, salt="google-oauth-state", settings=cfg)
     params = urlencode(
         {
             "client_id": cfg.GOOGLE_CLIENT_ID,
@@ -295,23 +303,42 @@ async def google_oauth_callback(
     db: Session = Depends(get_db),
 ):
     cfg = get_settings()
+    state_data = verify_signed_state(state, salt="google-oauth-state", max_age_seconds=600, settings=cfg) if state else None
+    state_fe = (state_data or {}).get("fe", "").strip().rstrip("/")
+    allowed_origins = set(cfg.cors_origin_list) | {cfg.effective_frontend_url}
+    req_origin = str(request.base_url).rstrip("/")
+
+    if state_fe and state_fe in allowed_origins and state_fe != req_origin:
+        cross_fe = state_fe
+    elif cfg.is_cross_origin_frontend:
+        cross_fe = cfg.effective_frontend_url
+    else:
+        cross_fe = ""
+
+    err_prefix = cross_fe if cross_fe else ""
+
     if error:
-        return RedirectResponse(url=f"/?auth_error={error}#login")
-    state_data = verify_signed_state(state, salt="google-oauth-state", max_age_seconds=600, settings=cfg)
+        return RedirectResponse(url=f"{err_prefix}/?auth_error={quote(error)}#login")
     if not state_data or not code:
-        return RedirectResponse(url="/?auth_error=invalid_oauth_state#login")
+        return RedirectResponse(url=f"{err_prefix}/?auth_error=invalid_oauth_state#login")
 
     ip = get_client_ip(request)
     ua = request.headers.get("user-agent", "")
     try:
         _, jwt_token = await exchange_google_code_and_login(db, code, ip, ua, cfg)
     except HTTPException as exc:
-        return RedirectResponse(url=f"/?auth_error={exc.detail}#login")
+        return RedirectResponse(url=f"{err_prefix}/?auth_error={quote(str(exc.detail))}#login")
 
     next_target = state_data.get("next") or "/#dashboard"
     if not next_target.startswith("/"):
         next_target = "/#dashboard"
-    resp = RedirectResponse(url=next_target)
+
+    if cross_fe:
+        redirect_url = f"{cross_fe}/#oauth-callback?token={quote(jwt_token)}&next={quote(next_target)}"
+    else:
+        redirect_url = next_target
+
+    resp = RedirectResponse(url=redirect_url)
     set_session_cookie(resp, jwt_token, cfg)
     return resp
 

@@ -2,7 +2,16 @@
  * Main SPA Router, Session Bootstrap, and Razorpay Checkout Orchestrator.
  */
 
-import { api, getBrand, showToast } from "./api.js";
+import {
+  api,
+  apiUrl,
+  clearAuthToken,
+  getApiBase,
+  getBrand,
+  setApiBaseOverride,
+  setAuthToken,
+  showToast,
+} from "./api.js";
 import { openAuthModal } from "./components/modals.js";
 import { renderNavbar } from "./components/navbar.js";
 import { renderAdminDashboardPage, renderAdminLoginPage } from "./pages/admin.js";
@@ -54,6 +63,10 @@ async function refreshPublicData() {
   state.overview = overview;
   state.plans = plans;
   document.title = `${overview.brand || "Lily API Hub"} by ${overview.company || "Sonic Network"}`;
+  const desc = document.querySelector('meta[name="description"]');
+  if (desc && overview.site_description) desc.setAttribute("content", overview.site_description);
+  const fav = document.querySelector('link[rel="icon"]');
+  if (fav) fav.href = apiUrl("/favicon.svg");
 }
 
 const handlers = {
@@ -63,7 +76,7 @@ const handlers = {
     const brand = getBrand(state);
     document.title = `${brand.appName} by ${brand.companyName}`;
     const fav = document.querySelector('link[rel="icon"]');
-    if (fav) fav.href = `/favicon.svg?v=${Date.now()}`;
+    if (fav) fav.href = `${apiUrl("/favicon.svg")}?v=${Date.now()}`;
   },
   navigate(target) {
     if (target === "#pricing" || target === "#support") {
@@ -104,6 +117,7 @@ const handlers = {
     } catch {
       // Ignore if session already expired
     }
+    clearAuthToken();
     state.user = null;
     state.subscription = null;
     state.keys = [];
@@ -216,6 +230,16 @@ const handlers = {
 async function renderCurrentRoute() {
   const { route, params } = parseRoute();
 
+  // Handle cross-origin Google OAuth token handoff cleanly
+  if (route === "oauth-callback") {
+    const token = params.get("token");
+    if (token) setAuthToken(token);
+    await refreshSession();
+    const nextHash = (params.get("next") || "#dashboard").replace(/^\/+/, "");
+    window.location.hash = nextHash.startsWith("#") ? nextHash : `#${nextHash}`;
+    return;
+  }
+
   // Handle email verification deep link
   if (route === "verify-email" && params.get("token")) {
     try {
@@ -281,11 +305,23 @@ async function renderCurrentRoute() {
 
 async function boot() {
   const queryParams = new URLSearchParams(window.location.search);
+  if (queryParams.get("api")) {
+    setApiBaseOverride(queryParams.get("api"));
+  }
   if (queryParams.get("auth_error")) {
     showToast(`Authentication notice: ${queryParams.get("auth_error")}`, "error", 6000);
   }
 
-  await Promise.all([refreshPublicData(), refreshSession()]);
+  try {
+    await Promise.all([refreshPublicData(), refreshSession()]);
+  } catch (err) {
+    const target = getApiBase() || window.location.origin;
+    showToast(
+      `Backend API unreachable at ${target}. Set API_BASE_URL in frontend/config.js or deploy settings.`,
+      "error",
+      7000
+    );
+  }
   await renderCurrentRoute();
 }
 

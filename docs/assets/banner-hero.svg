@@ -129,7 +129,7 @@
         <text x="178" y="19" fill="#7dd3fc" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">⚡ Master Proxy</text>
 
         <rect x="342" y="0" width="174" height="30" rx="9" fill="rgba(232,121,249,0.16)" stroke="rgba(232,121,249,0.42)" />
-        <text x="356" y="19" fill="#f5d0fe" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">✦ .env Brandable</text>
+        <text x="356" y="19" fill="#f5d0fe" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">✦ 14/14 Tests OK</text>
       </g>
     </g>
 

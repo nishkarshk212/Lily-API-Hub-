@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy" />
   <img src="https://img.shields.io/badge/Razorpay-HMAC--SHA256-072654?style=for-the-badge&logo=razorpay&logoColor=3395FF" alt="Razorpay" />
   <img src="https://img.shields.io/badge/OAuth%202.0-Google-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google OAuth" />
-  <img src="https://img.shields.io/badge/Pytest-12%2F12%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 12/12 Passing" />
+  <img src="https://img.shields.io/badge/Pytest-14%2F14%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 14/14 Passing" />
 </p>
 
 <!-- Interactive Quick Navigation Bar -->
@@ -117,19 +117,27 @@ flowchart LR
 <details open>
 <summary><b>🚀 Run Locally in 60 Seconds (SQLite Zero-Config)</b></summary>
 
-### 1. Configure Environment
+### 1. Configure Backend Environment
 ```bash
+cd backend
 cp .env.example .env
-# Edit .env to customize APP_NAME, SECRET_KEY, RAZORPAY_*, UPSTREAM_API_BASE_URL, and MASTER_API_KEY
+# Edit backend/.env to customize APP_NAME, SECRET_KEY, FRONTEND_URL, RAZORPAY_*, UPSTREAM_API_BASE_URL, and MASTER_API_KEY
 ```
 
-### 2. Install Dependencies & Start Server
+### 2. Install Dependencies & Start Backend Server
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv ../.venv
+source ../.venv/bin/activate
 pip install -r requirements.txt
 
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+*(Optional) Run Frontend Independently on Port `3000` (Cross-Origin Decoupled Test):*
+```bash
+cd ../frontend
+API_BASE_URL="http://127.0.0.1:8000" sh build-config.sh
+python3 -m http.server 3000
 ```
 
 ### 3. Explore Portal Routes
@@ -254,17 +262,17 @@ Every `/v1/*` response returns:
 
 Production blueprints are included out of the box—see [**`DEPLOYMENT_GUIDE.md`**](./DEPLOYMENT_GUIDE.md) and [**`RAZORPAY_GUIDE.md`**](./RAZORPAY_GUIDE.md) for full checklists.
 
-<details>
-<summary><b>🌐 Deployment Matrix: Docker · Render · Railway · Vercel + Cloudflare Worker</b></summary>
+<details open>
+<summary><b>🌐 Decoupled Architecture: Frontend (Vercel / Cloudflare Pages) + Backend (Render / Railway)</b></summary>
 
-| Target | Config File | Database Recommendation | Best For |
+| Component | Recommended Host | Root / Config | Why It Fits Best |
 | :--- | :--- | :--- | :--- |
-| **Docker Compose** | [`docker-compose.yml`](./docker-compose.yml) · [`Dockerfile`](./Dockerfile) | Bundled PostgreSQL 15 container | VPS / Self-hosted Nginx TLS |
-| **Render Blueprint** | [`render.yaml`](./render.yaml) | Managed Render PostgreSQL (`lily-hub-db`) | 1-Click GitHub Blueprint deploy |
-| **Railway** | [`railway.toml`](./railway.toml) · [`Dockerfile`](./Dockerfile) | Railway Postgres / Neon | Persistent container + fast scaling |
-| **Vercel Serverless** | [`vercel.json`](./vercel.json) · [`api/index.py`](./api/index.py) | Hosted Neon / Supabase PostgreSQL | Edge frontend + Python serverless |
+| **Frontend (`frontend/`)** | **Vercel** or **Cloudflare Pages** | Root Directory: `frontend` (`vercel.json`, `_redirects`) | Pure static HTML/CSS/ES6 CDN — zero cold starts, global edge cache, free SSL |
+| **Backend (`backend/`)** | **Render** (`render.yaml`) or **Railway** (`railway.toml`) | Root Directory: `backend` (`Dockerfile`) | Stateful persistent Python container for rate limits, webhooks, PostgreSQL & upstream proxying |
+| **Upstream API** | **Cloudflare Workers** | Linked via `UPSTREAM_API_BASE_URL` + `MASTER_API_KEY` | Low-latency edge API origin protected behind Lily Gateway |
+| **Full Stack Self-Host** | **Docker Compose** | [`docker-compose.yml`](./docker-compose.yml) | Runs PostgreSQL 15 + FastAPI (`:8000`) + Nginx Frontend (`:3000`) cleanly together |
 
-> **Tip for Cloudflare Worker Backends:** Deploy your main Worker behind Cloudflare and set `UPSTREAM_API_BASE_URL` + `MASTER_API_KEY` + `UPSTREAM_AUTH_HEADER=X-API-Key` (with empty `UPSTREAM_AUTH_SCHEME`) inside `.env` or **Admin Portal → Master API Config**. Rotate your Worker secret so external clients must go through your rate-limited gateway.
+> **Connecting Frontend → Backend:** Set `API_BASE_URL=https://your-backend.onrender.com` in Vercel/Cloudflare Pages (`sh build-config.sh`), and set `FRONTEND_URL=https://your-site.vercel.app` + `CORS_ORIGINS` on your Backend so cookies, Bearer sessions, Google OAuth redirects, email links & receipts work across domains seamlessly.
 
 </details>
 
@@ -273,41 +281,48 @@ Production blueprints are included out of the box—see [**`DEPLOYMENT_GUIDE.md`
 ## 🧪 Testing & Repository Layout
 
 <details>
-<summary><b>🧪 Click to view Test Coverage (12/12 Passing) &amp; Project Directory Tree</b></summary>
+<summary><b>🧪 Click to view Test Coverage (14/14 Passing) &amp; Two-Part Project Structure</b></summary>
 
-Run the full automated suite (`Pytest` + FastAPI `TestClient` with isolated temporary SQLite databases per test):
+Run the full automated suite from `backend/`:
 ```bash
-source .venv/bin/activate
+cd backend
+source ../.venv/bin/activate
 pytest -v
 ```
 
 | Test Module | Coverage |
 | :--- | :--- |
-| [`tests/test_auth.py`](./tests/test_auth.py) | Registration, login, email verification, password reset & Google OAuth CSRF state validation |
-| [`tests/test_gateway_quotas.py`](./tests/test_gateway_quotas.py) | Key reveal/rotate/revoke, max-key caps, built-in endpoints, rate limits, expiry & Master proxy injection |
-| [`tests/test_razorpay.py`](./tests/test_razorpay.py) | Razorpay order creation, HMAC verification, webhook idempotency, cancellation & reconciliation |
-| [`tests/test_admin.py`](./tests/test_admin.py) | Admin RBAC isolation, user suspension, plan CRUD, DB URL normalization & live branding override/reset |
+| [`backend/tests/test_auth.py`](./backend/tests/test_auth.py) | Registration, login, email verification, password reset & Google OAuth CSRF state validation |
+| [`backend/tests/test_gateway_quotas.py`](./backend/tests/test_gateway_quotas.py) | Key reveal/rotate/revoke, max-key caps, built-in endpoints, rate limits, expiry & Master proxy injection |
+| [`backend/tests/test_razorpay.py`](./backend/tests/test_razorpay.py) | Razorpay order creation, HMAC verification, webhook idempotency, cancellation & reconciliation |
+| [`backend/tests/test_admin.py`](./backend/tests/test_admin.py) | Admin RBAC isolation, user suspension, plan CRUD, Vercel fallback, cross-origin Bearer auth & live branding |
 
 ```text
 .
-├── api/index.py                     # Vercel serverless ASGI adapter
-├── app/
-│   ├── main.py                      # FastAPI entrypoint, SPA fallback & dynamic SVG favicon
-│   ├── core/                        # Config (.env), SQLAlchemy engine, Fernet security, email & seed
-│   ├── models/                      # User, SubscriptionPlan, ApiKey, Payment, MasterGatewayConfig, SiteBrandingConfig
-│   ├── routers/                     # Auth, Public, Plans, Keys, Payments, Playground, Admin, Gateway (/v1)
-│   ├── schemas/                     # Pydantic v2 request/response validation schemas
-│   └── services/                    # Business logic: Auth, Branding, Key minting, Gateway proxy & Razorpay
-├── frontend/
+├── frontend/                        # Part 1 — Standalone Static Web App (Vercel / Cloudflare Pages / Netlify)
 │   ├── index.html                   # SPA shell
+│   ├── config.js                    # Runtime API_BASE_URL injection target
+│   ├── build-config.sh              # Env var -> config.js script for static hosts
+│   ├── vercel.json · _redirects · _headers
 │   ├── css/                         # tokens.css, base.css, landing.css, dashboard.css, admin.css
-│   └── js/                          # Modular ES6 app router, charts, modals, navbar & 5 workspace pages
+│   └── js/                          # api.js (Bearer + Cookie), app router, charts, modals & 5 pages
+├── backend/                         # Part 2 — FastAPI API, Gateway, Razorpay & DB (Render / Railway / Docker)
+│   ├── app/
+│   │   ├── main.py                  # FastAPI app, dynamic SVG favicon, CORS & optional local SPA serve
+│   │   ├── core/                    # Config (.env), SQLAlchemy engine, Fernet security, email & seed
+│   │   ├── models/                  # User, SubscriptionPlan, ApiKey, Payment, MasterGatewayConfig, SiteBrandingConfig
+│   │   ├── routers/                 # Auth, Public, Plans, Keys, Payments, Playground, Admin, Gateway (/v1)
+│   │   ├── schemas/                 # Pydantic v2 validation schemas
+│   │   └── services/                # Auth, Branding, Key minting, Gateway proxy & Razorpay
+│   ├── tests/                       # 14 end-to-end automated integration tests
+│   ├── Dockerfile · .dockerignore · railway.toml
+│   └── requirements.txt · pyproject.toml · .env.example
 ├── docs/assets/                     # Custom animated SVG banners & architecture visuals
-├── tests/                           # 12 end-to-end automated integration tests
-├── DEPLOYMENT_GUIDE.md              # Docker, Render, Railway, Vercel & Cloudflare guide
-├── RAZORPAY_GUIDE.md                # Test/Live Razorpay setup & webhook security guide
-├── Dockerfile · docker-compose.yml · railway.toml · render.yaml · vercel.json
-└── requirements.txt · .env.example
+├── docker-compose.yml               # Local/VPS 3-container setup (Postgres + Backend + Nginx Frontend)
+├── render.yaml                      # Root Render Blueprint targeting backend/Dockerfile
+├── vercel.json                      # Static frontend Vercel deploy config
+├── DEPLOYMENT_GUIDE.md              # Cloud deployment checklist
+└── RAZORPAY_GUIDE.md                # Test/Live Razorpay setup & webhook security guide
 ```
 
 </details>

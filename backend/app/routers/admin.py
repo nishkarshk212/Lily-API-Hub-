@@ -44,7 +44,7 @@ def admin_login(payload: LoginRequest, request: Request, response: Response, db:
     ua = request.headers.get("user-agent", "")
     user, jwt_token = authenticate_user(db, payload.email, payload.password, ip, ua, require_admin=True)
     set_session_cookie(response, jwt_token)
-    return {"user": UserOut.model_validate(user), "message": "Admin session authenticated."}
+    return {"user": UserOut.model_validate(user), "access_token": jwt_token, "message": "Admin session authenticated."}
 
 
 @router.get("/analytics")

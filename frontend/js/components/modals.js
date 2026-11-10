@@ -2,7 +2,7 @@
  * Reusable Modal dialogs: Authentication, Confirm, New Key, Admin Plan Editor.
  */
 
-import { api, esc, showToast } from "../api.js";
+import { api, apiUrl, esc, setAuthToken, showToast } from "../api.js";
 
 export function closeModal() {
   const root = document.getElementById("modal-root");
@@ -156,7 +156,7 @@ export function openAuthModal({
         showToast("Google OAuth is not configured in .env yet (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).", "error", 5000);
         return;
       }
-      window.location.href = `/api/auth/google/login?next_route=${encodeURIComponent("/#dashboard")}`;
+      window.location.href = `${apiUrl("/api/auth/google/login")}?next_route=${encodeURIComponent("/#dashboard")}&frontend_origin=${encodeURIComponent(window.location.origin)}`;
     });
 
     document.getElementById("link-forgot")?.addEventListener("click", (e) => {
@@ -190,6 +190,7 @@ export function openAuthModal({
             email: document.getElementById("auth-email").value,
             password: document.getElementById("auth-password").value,
           });
+          if (res.access_token) setAuthToken(res.access_token);
           closeModal();
           showToast(`Welcome back, ${res.user.full_name || res.user.email}!`, "success");
           await onAuthSuccess?.(res.user);
@@ -200,6 +201,7 @@ export function openAuthModal({
             email: document.getElementById("auth-email").value,
             password: document.getElementById("auth-password").value,
           });
+          if (res.access_token) setAuthToken(res.access_token);
           closeModal();
           showToast(res.message, "success", 5500);
           if (res.dev_verification_hint) {

@@ -14,21 +14,33 @@ services:
       timeout: 5s
       retries: 10
 
-  web:
-    build: .
+  backend:
+    build: ./backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     env_file:
-      - .env
+      - ./backend/.env
     environment:
       DATABASE_URL: postgresql+psycopg://lily_user:${POSTGRES_PASSWORD:-change_me_pg_password}@db:5432/lily_hub
       APP_ENV: production
-      COOKIE_SECURE: "true"
+      COOKIE_SECURE: "false"
+      APP_PUBLIC_URL: http://localhost:8000
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://localhost:8000
     ports:
       - "8000:8000"
 
+  frontend:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    ports:
+      - "3000:80"
+
 volumes:
   pgdata:
-

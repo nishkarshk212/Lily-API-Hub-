@@ -187,5 +187,35 @@ def test_vercel_readonly_cwd_fallback_and_healthz(tmp_path, monkeypatch):
         assert vc.get("/").status_code == 200
 
 
+def test_cross_origin_frontend_settings_and_bearer_auth(client):
+    from app.core.config import Settings
+
+    cfg = Settings(
+        _env_file=None,
+        APP_PUBLIC_URL="https://api.example-backend.onrender.com",
+        FRONTEND_URL="https://my-app.vercel.app/",
+        CORS_ORIGINS="http://localhost:3000",
+    )
+    assert cfg.effective_frontend_url == "https://my-app.vercel.app"
+    assert cfg.is_cross_origin_frontend is True
+    assert "https://my-app.vercel.app" in cfg.cors_origin_list
+    assert "http://localhost:3000" in cfg.cors_origin_list
+
+    # Access token returned for cross-origin Bearer clients (cookies disabled)
+    reg = client.post(
+        "/api/auth/register",
+        json={"email": "crossfe@example.com", "password": "Password123", "full_name": "Cross FE"},
+    )
+    assert reg.status_code == 200
+    token = reg.json().get("access_token")
+    assert token
+
+    client.cookies.clear()
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["user"]["email"] == "crossfe@example.com"
+
+
+
 
 

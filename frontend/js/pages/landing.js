@@ -2,7 +2,7 @@
  * Simple Monochrome White & Black Landing Page with smooth scroll-reveal & interactive terminal animations.
  */
 
-import { api, esc, formatInr, formatNum, getBrand, showToast } from "../api.js";
+import { api, esc, formatInr, formatNum, getApiBase, getBrand, showToast } from "../api.js";
 
 function attachRevealObserver(container) {
   const els = container.querySelectorAll(".reveal");
@@ -31,7 +31,7 @@ export function renderLandingPage(state, handlers) {
   const plans = state.plans || [];
   const overview = state.overview || {};
   const brand = getBrand(state);
-  const baseUrl = overview.api_base_url || `${window.location.origin}/v1`;
+  const baseUrl = overview.api_base_url || `${getApiBase() || window.location.origin}/v1`;
   const faqs = overview.faqs || [];
   const sampleMaskedKey = `${brand.keyPrefixLive}9f3a••••••••c81d`;
   const sampleKey = `${brand.keyPrefixLive}your_key`;

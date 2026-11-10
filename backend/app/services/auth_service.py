@@ -40,21 +40,31 @@ def get_client_ip(request: Request) -> str:
     return (request.client.host if request.client else "127.0.0.1")[:64]
 
 
+def _cookie_policy(cfg: Settings) -> Tuple[str, bool]:
+    https_mode = cfg.COOKIE_SECURE or cfg.is_production or cfg.effective_frontend_url.startswith("https://")
+    if cfg.is_cross_origin_frontend and https_mode:
+        return "none", True
+    return "lax", bool(cfg.COOKIE_SECURE or cfg.is_production)
+
+
 def set_session_cookie(response: Response, token: str, settings: Optional[Settings] = None) -> None:
     cfg = settings or get_settings()
+    samesite, secure = _cookie_policy(cfg)
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
-        samesite="lax",
-        secure=cfg.COOKIE_SECURE or cfg.is_production,
+        samesite=samesite,
+        secure=secure,
         max_age=cfg.SESSION_EXPIRE_HOURS * 3600,
         path="/",
     )
 
 
-def clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
+def clear_session_cookie(response: Response, settings: Optional[Settings] = None) -> None:
+    cfg = settings or get_settings()
+    samesite, secure = _cookie_policy(cfg)
+    response.delete_cookie(key=SESSION_COOKIE_NAME, path="/", samesite=samesite, secure=secure)
 
 
 def create_session_for_user(db: Session, user: User, ip_address: str, user_agent: str) -> Tuple[UserSession, str]:

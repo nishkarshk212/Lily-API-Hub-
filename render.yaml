@@ -1,7 +1,9 @@
 services:
   - type: web
-    name: lily-api-hub
+    name: lily-api-hub-backend
     runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /healthz
     envVars:
@@ -42,6 +44,8 @@ services:
       - key: MASTER_API_KEY
         sync: false
       - key: APP_PUBLIC_URL
+        sync: false
+      - key: FRONTEND_URL
         sync: false
       - key: CORS_ORIGINS
         sync: false

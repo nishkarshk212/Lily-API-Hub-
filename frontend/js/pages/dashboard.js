@@ -14,8 +14,10 @@ import {
   formatDate,
   formatInr,
   formatNum,
+  getApiBase,
   getBrand,
   highlightJson,
+  openAuthenticatedUrl,
   showToast,
   statusBadge,
 } from "../api.js";
@@ -69,7 +71,7 @@ export async function renderDashboardPage(state, handlers) {
     return;
   }
 
-  const baseUrl = subRes.api_base_url || `${window.location.origin}/v1`;
+  const baseUrl = subRes.api_base_url || `${getApiBase() || window.location.origin}/v1`;
   const revealedKeys = {};
   const curlOpenKeys = {};
   let selectedCredKeyId = "";
@@ -539,7 +541,7 @@ export async function renderDashboardPage(state, handlers) {
                             <td style="font-size:12.5px;">${formatDate(p.paid_at || p.created_at)}</td>
                             <td>
                               <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                                <a class="btn btn-secondary btn-sm" href="/api/payments/${esc(p.id)}/receipt?format=html" target="_blank" rel="noopener">Receipt</a>
+                                <button type="button" class="btn btn-secondary btn-sm" data-dash-receipt="${esc(p.id)}">Receipt</button>
                                 ${
                                   p.status === "pending"
                                     ? `<button class="btn btn-primary btn-sm" data-reconcile="${esc(p.id)}">Check Status</button>`
@@ -979,6 +981,16 @@ export async function renderDashboardPage(state, handlers) {
       btn.addEventListener("click", () => {
         state.playgroundKeyId = btn.getAttribute("data-test-key");
         handlers.navigate("#playground");
+      });
+    });
+
+    root.querySelectorAll("[data-dash-receipt]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await openAuthenticatedUrl(`/api/payments/${btn.getAttribute("data-dash-receipt")}/receipt?format=html`);
+        } catch (err) {
+          showToast(err.message, "error");
+        }
       });
     });
 

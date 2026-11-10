@@ -2,7 +2,7 @@
  * Comprehensive API Documentation Portal.
  */
 
-import { copyToClipboard, esc, getBrand } from "../api.js";
+import { copyToClipboard, esc, getApiBase, getBrand } from "../api.js";
 
 function buildSnippets(baseUrl, ep) {
   const queryStr =
@@ -30,7 +30,7 @@ export function renderDocsPage(state, handlers) {
 
   const brand = getBrand(state);
   const sampleDocsKey = `${brand.keyPrefixLive}your_unique_customer_key`;
-  const baseUrl = state.overview?.api_base_url || `${window.location.origin}/v1`;
+  const baseUrl = state.overview?.api_base_url || `${getApiBase() || window.location.origin}/v1`;
   const endpoints = state.overview?.endpoints || [];
 
   const errorCodes = [

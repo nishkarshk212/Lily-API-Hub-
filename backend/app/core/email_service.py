@@ -96,7 +96,7 @@ def send_transactional_email(
 def send_verification_email(db: Session, to_email: str, full_name: str, token: str, settings: Optional[Settings] = None) -> str:
     cfg = settings or get_settings()
     b = get_effective_branding(db, cfg)
-    verify_url = f"{cfg.APP_PUBLIC_URL.rstrip('/')}/#verify-email?token={token}"
+    verify_url = f"{cfg.effective_frontend_url}/#verify-email?token={token}"
     greeting = full_name or "Developer"
     html = _wrap_email_html(
         title="Verify your email address",
@@ -113,7 +113,7 @@ def send_verification_email(db: Session, to_email: str, full_name: str, token: s
 def send_password_reset_email(db: Session, to_email: str, full_name: str, token: str, settings: Optional[Settings] = None) -> str:
     cfg = settings or get_settings()
     b = get_effective_branding(db, cfg)
-    reset_url = f"{cfg.APP_PUBLIC_URL.rstrip('/')}/#reset-password?token={token}"
+    reset_url = f"{cfg.effective_frontend_url}/#reset-password?token={token}"
     greeting = full_name or "Developer"
     html = _wrap_email_html(
         title="Reset your password",
@@ -139,7 +139,7 @@ def send_payment_receipt_email(
 ) -> str:
     cfg = settings or get_settings()
     b = get_effective_branding(db, cfg)
-    dash_url = f"{cfg.APP_PUBLIC_URL.rstrip('/')}/#dashboard"
+    dash_url = f"{cfg.effective_frontend_url}/#dashboard"
     greeting = full_name or "Developer"
     html = _wrap_email_html(
         title="Payment Confirmed & API Key Provisioned",

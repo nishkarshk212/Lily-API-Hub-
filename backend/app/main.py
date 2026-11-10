@@ -16,7 +16,7 @@ from app.core.database import ensure_db_ready, get_db, get_db_init_status
 from app.routers import admin, auth, gateway, keys, payments, plans, playground, public
 from app.services.branding_service import get_effective_branding
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 
 
 @asynccontextmanager
@@ -76,25 +76,32 @@ def create_app() -> FastAPI:
             payload["database_error_type"] = db_err.split(":", 1)[0]
         return payload
 
+    @app.get("/favicon.svg", include_in_schema=False)
+    @app.get("/favicon.ico", include_in_schema=False)
+    def serve_favicon(db: Session = Depends(get_db)):
+        brand = get_effective_branding(db)
+        letter = html.escape(brand["brand_letter"])
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+            '<rect width="64" height="64" rx="16" fill="#0a0a0a"/>'
+            f'<text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" '
+            'font-family="Inter,-apple-system,sans-serif" font-weight="800" font-size="34" fill="#ffffff">'
+            f"{letter}</text></svg>"
+        )
+        return Response(content=svg, media_type="image/svg+xml")
+
     if FRONTEND_DIR.exists():
         if (FRONTEND_DIR / "css").exists():
             app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
         if (FRONTEND_DIR / "js").exists():
             app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
 
-        @app.get("/favicon.svg", include_in_schema=False)
-        @app.get("/favicon.ico", include_in_schema=False)
-        def serve_favicon(db: Session = Depends(get_db)):
-            brand = get_effective_branding(db)
-            letter = html.escape(brand["brand_letter"])
-            svg = (
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
-                '<rect width="64" height="64" rx="16" fill="#0a0a0a"/>'
-                f'<text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" '
-                'font-family="Inter,-apple-system,sans-serif" font-weight="800" font-size="34" fill="#ffffff">'
-                f"{letter}</text></svg>"
-            )
-            return Response(content=svg, media_type="image/svg+xml")
+        @app.get("/config.js", include_in_schema=False)
+        def serve_config_js():
+            cfg_path = FRONTEND_DIR / "config.js"
+            if cfg_path.exists():
+                return Response(content=cfg_path.read_text(encoding="utf-8"), media_type="application/javascript")
+            return Response(content="window.__APP_CONFIG__ = window.__APP_CONFIG__ || { API_BASE_URL: '' };", media_type="application/javascript")
 
         @app.get("/", include_in_schema=False)
         @app.get("/docs-portal", include_in_schema=False)
@@ -121,7 +128,16 @@ def create_app() -> FastAPI:
     else:
         @app.get("/")
         def api_root():
-            return JSONResponse({"service": cfg.APP_NAME, "status": "running"})
+            return JSONResponse(
+                {
+                    "service": cfg.APP_NAME,
+                    "company": cfg.COMPANY_NAME,
+                    "status": "running",
+                    "frontend_url": cfg.effective_frontend_url,
+                    "docs": "/docs",
+                    "health": "/healthz",
+                }
+            )
 
     return app
 

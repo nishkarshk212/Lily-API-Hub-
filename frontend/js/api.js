@@ -1,6 +1,67 @@
 /**
- * Core HTTP API client, XSS escaping, formatting, and toast utilities.
+ * Core HTTP API client, cross-origin URL/token helpers, XSS escaping, formatting, and toast utilities.
  */
+
+const TOKEN_STORAGE_KEY = "lily_session_token";
+const API_OVERRIDE_KEY = "lily_api_base_override";
+
+export function getApiBase() {
+  const configured = String(window.__APP_CONFIG__?.API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  try {
+    const override = String(sessionStorage.getItem(API_OVERRIDE_KEY) || "").trim().replace(/\/+$/, "");
+    if (override) return override;
+  } catch {
+    // Ignore storage access errors in restricted contexts
+  }
+  return "";
+}
+
+export function setApiBaseOverride(url) {
+  try {
+    if (!url) {
+      sessionStorage.removeItem(API_OVERRIDE_KEY);
+      return;
+    }
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      sessionStorage.setItem(API_OVERRIDE_KEY, parsed.origin);
+    }
+  } catch {
+    // Ignore invalid URL overrides
+  }
+}
+
+export function apiUrl(path) {
+  if (!path) return getApiBase() || "";
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = getApiBase();
+  return base ? `${base}${path.startsWith("/") ? path : "/" + path}` : path;
+}
+
+export function getAuthToken() {
+  try {
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setAuthToken(token) {
+  try {
+    if (token) sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+  } catch {
+    // Ignore
+  }
+}
+
+export function clearAuthToken() {
+  try {
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // Ignore
+  }
+}
 
 export function getBrand(state) {
   const ov = state?.overview || {};
@@ -118,11 +179,15 @@ async function request(method, url, body = undefined) {
     credentials: "include",
     headers: {},
   };
+  const token = getAuthToken();
+  if (token) {
+    opts.headers["Authorization"] = `Bearer ${token}`;
+  }
   if (body !== undefined) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
-  const resp = await fetch(url, opts);
+  const resp = await fetch(apiUrl(url), opts);
   const contentType = resp.headers.get("content-type") || "";
   const data = contentType.includes("application/json") ? await resp.json() : await resp.text();
   if (!resp.ok) {
@@ -136,6 +201,23 @@ async function request(method, url, body = undefined) {
     throw err;
   }
   return data;
+}
+
+export async function openAuthenticatedUrl(path) {
+  const opts = { method: "GET", credentials: "include", headers: {} };
+  const token = getAuthToken();
+  if (token) {
+    opts.headers["Authorization"] = `Bearer ${token}`;
+  }
+  const resp = await fetch(apiUrl(path), opts);
+  if (!resp.ok) {
+    throw new Error(`Unable to open receipt (HTTP ${resp.status})`);
+  }
+  const html = await resp.text();
+  const blob = new Blob([html], { type: "text/html" });
+  const blobUrl = URL.createObjectURL(blob);
+  window.open(blobUrl, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 }
 
 export const api = {

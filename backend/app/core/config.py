@@ -4,6 +4,7 @@ from functools import lru_cache
 import os
 import secrets
 from typing import List
+from urllib.parse import urlparse
 
 from fastapi import Request
 from pydantic import Field, field_validator
@@ -40,6 +41,7 @@ class Settings(BaseSettings):
     RECEIPT_PREFIX: str = "LILY"
     APP_ENV: str = "development"
     APP_PUBLIC_URL: str = "http://localhost:8000"
+    FRONTEND_URL: str = ""
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
@@ -131,8 +133,25 @@ class Settings(BaseSettings):
         return f"{self.APP_PUBLIC_URL.rstrip('/')}/v1"
 
     @property
+    def effective_frontend_url(self) -> str:
+        return (self.FRONTEND_URL.strip() or self.APP_PUBLIC_URL).rstrip("/")
+
+    @property
+    def is_cross_origin_frontend(self) -> bool:
+        fe = self.FRONTEND_URL.strip()
+        if not fe:
+            return False
+        fe_parsed = urlparse(fe)
+        be_parsed = urlparse(self.APP_PUBLIC_URL)
+        return bool(fe_parsed.netloc and fe_parsed.netloc.lower() != be_parsed.netloc.lower())
+
+    @property
     def cors_origin_list(self) -> List[str]:
-        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        origins = [o.strip().rstrip("/") for o in self.CORS_ORIGINS.split(",") if o.strip() and o.strip() != "*"]
+        fe = self.FRONTEND_URL.strip().rstrip("/")
+        if fe and fe not in origins:
+            origins.append(fe)
+        return origins
 
     @property
     def razorpay_configured(self) -> bool:
