@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# Database & Local Artifacts
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+data/
+
+# Logs & OS
+*.log
+.DS_Store
+

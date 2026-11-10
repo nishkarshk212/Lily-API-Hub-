@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" width="1200" height="120" role="img" aria-label="Animated Footer Wave">
+  <defs>
+    <linearGradient id="waveGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.85" />
+      <stop offset="50%" stop-color="#c026d3" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.85" />
+    </linearGradient>
+    <linearGradient id="waveGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.55" />
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.55" />
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.55" />
+    </linearGradient>
+    <clipPath id="footClip">
+      <rect x="0" y="0" width="1200" height="120" rx="16" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#footClip)">
+    <rect width="1200" height="120" fill="#090d1f" />
+    <path fill="url(#waveGrad2)">
+      <animate attributeName="d" dur="8s" repeatCount="indefinite" values="
+        M0,62 C260,20 520,104 820,56 C1000,28 1110,72 1200,52 L1200,120 L0,120 Z;
+        M0,52 C280,96 560,24 860,68 C1040,94 1130,36 1200,58 L1200,120 L0,120 Z;
+        M0,62 C260,20 520,104 820,56 C1000,28 1110,72 1200,52 L1200,120 L0,120 Z" />
+    </path>
+    <path fill="url(#waveGrad1)">
+      <animate attributeName="d" dur="6.5s" repeatCount="indefinite" values="
+        M0,74 C240,106 490,42 780,82 C980,108 1100,52 1200,74 L1200,120 L0,120 Z;
+        M0,80 C260,46 540,104 820,66 C1010,42 1120,92 1200,70 L1200,120 L0,120 Z;
+        M0,74 C240,106 490,42 780,82 C980,108 1100,52 1200,74 L1200,120 L0,120 Z" />
+    </path>
+    <text x="600" y="54" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" letter-spacing="0.4">
+      Lily API Hub · Built with FastAPI, SQLAlchemy 2.0, Razorpay HMAC &amp; Vanilla ES6 Modules
+    </text>
+  </g>
+</svg>

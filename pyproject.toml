@@ -1,0 +1,11 @@
+[project]
+name = "lily-api-hub"
+version = "1.0.0"
+description = "Lily API Hub by Sonic Network — Commercial API Gateway, Subscription & Razorpay Billing Platform"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"

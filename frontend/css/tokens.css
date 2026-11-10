@@ -1,0 +1,56 @@
+:root {
+  /* Monochrome White & Black Core Surfaces */
+  --bg-obsidian: #ffffff;
+  --bg-midnight: #fafafa;
+  --bg-deep-blue: #f4f4f5;
+  --bg-panel: rgba(255, 255, 255, 0.92);
+  --bg-panel-solid: #ffffff;
+  --bg-panel-hover: #f8f8f9;
+  --bg-code: #0a0a0a;
+
+  /* Ink Black & Monochrome Accents */
+  --ink-black: #0a0a0a;
+  --ink-charcoal: #18181b;
+  --neon-cyan: #0a0a0a;
+  --neon-blue: #3f3f46;
+  --brand-blue: #0a0a0a;
+  --brand-indigo: #27272a;
+  --glow-cyan: rgba(10, 10, 10, 0.08);
+  --glow-blue: rgba(10, 10, 10, 0.12);
+
+  /* Status Colors (High-Contrast on White) */
+  --success: #15803d;
+  --success-bg: rgba(22, 163, 74, 0.1);
+  --warning: #b45309;
+  --warning-bg: rgba(217, 119, 6, 0.12);
+  --danger: #be123c;
+  --danger-bg: rgba(225, 29, 72, 0.1);
+  --info: #18181b;
+  --info-bg: rgba(10, 10, 10, 0.06);
+
+  /* Text Hierarchy */
+  --text-primary: #0a0a0a;
+  --text-secondary: #3f3f46;
+  --text-muted: #71717a;
+  --text-dim: #a1a1aa;
+
+  /* Borders & Radii */
+  --border-subtle: rgba(10, 10, 10, 0.1);
+  --border-bright: rgba(10, 10, 10, 0.34);
+  --border-glass: rgba(10, 10, 10, 0.08);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Shadows */
+  --shadow-card: 0 10px 30px -12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-neon: 0 22px 46px -16px rgba(0, 0, 0, 0.18);
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

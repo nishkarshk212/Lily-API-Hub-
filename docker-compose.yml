@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lily_hub
+      POSTGRES_USER: lily_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_pg_password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lily_user -d lily_hub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://lily_user:${POSTGRES_PASSWORD:-change_me_pg_password}@db:5432/lily_hub
+      APP_ENV: production
+      COOKIE_SECURE: "true"
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
+
