@@ -1,5 +1,6 @@
 .venv/
 backend/
+deploy/
 __pycache__/
 *.py[cod]
 .pytest_cache/
