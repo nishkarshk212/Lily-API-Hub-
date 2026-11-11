@@ -479,6 +479,8 @@ def _base_ydl_opts(cookies_file: Optional[str], runtime_cfg: MediaRuntimeConfig,
         "socket_timeout": 20,
         "retries": 1,
         "max_filesize": int(runtime_cfg.max_file_size_mb) * 1024 * 1024,
+        "js_runtimes": {"deno": {}},
+        "remote_components": ["ejs:github"],
     }
     if flat:
         opts["extract_flat"] = "in_playlist"
