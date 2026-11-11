@@ -1050,6 +1050,209 @@ def _pick_direct_stream(
     return combined[0]
 
 
+def _pick_mux_or_audio_sources(
+    info: Dict[str, Any],
+    *,
+    media_type: str,
+    fmt: str,
+    max_height: Optional[int],
+) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Select already-extracted HTTP progressive streams to avoid re-invoking yt-dlp extract_info."""
+    http_formats = [
+        f
+        for f in (info.get("formats") or [])
+        if isinstance(f, dict)
+        and (f.get("protocol") or "").lower() in ("http", "https")
+        and str(f.get("url") or "").startswith(("http://", "https://"))
+    ]
+    audio_streams = [
+        f
+        for f in http_formats
+        if (f.get("acodec") or "none") != "none" and (f.get("vcodec") or "none") == "none"
+    ]
+    combined_streams = [
+        f
+        for f in http_formats
+        if (f.get("acodec") or "none") != "none" and (f.get("vcodec") or "none") != "none"
+    ]
+    if media_type == "audio":
+        audio_streams.sort(key=lambda f: float(f.get("abr") or f.get("tbr") or 0), reverse=True)
+        if audio_streams:
+            return None, audio_streams[0]
+        combined_streams.sort(key=lambda f: float(f.get("abr") or f.get("tbr") or 0), reverse=True)
+        return None, (combined_streams[0] if combined_streams else None)
+
+    video_streams = [
+        f
+        for f in http_formats
+        if (f.get("vcodec") or "none") != "none"
+        and (f.get("acodec") or "none") == "none"
+        and (max_height is None or int(f.get("height") or 0) <= max_height)
+    ]
+    if not video_streams or not audio_streams:
+        return None, None
+    target_vext = "webm" if fmt == "webm" else "mp4"
+    target_aext = "webm" if fmt == "webm" else "m4a"
+    video_streams.sort(
+        key=lambda f: (
+            1 if (f.get("ext") or "").lower() == target_vext else 0,
+            int(f.get("height") or 0),
+            float(f.get("fps") or 0),
+            float(f.get("tbr") or 0),
+        ),
+        reverse=True,
+    )
+    audio_streams.sort(
+        key=lambda f: (
+            1 if (f.get("ext") or "").lower() == target_aext else 0,
+            float(f.get("abr") or f.get("tbr") or 0),
+        ),
+        reverse=True,
+    )
+    return video_streams[0], audio_streams[0]
+
+
+async def _fetch_cdn_file(
+    url: str,
+    headers: Dict[str, str],
+    dest_path: Path,
+    max_bytes: int,
+) -> None:
+    safe_url = validate_public_http_url(url)
+    client = _build_cdn_http_client()
+    written = 0
+    try:
+        async with client.stream("GET", safe_url, headers=headers) as resp:
+            if resp.status_code in (301, 302, 303, 307, 308) and resp.headers.get("location"):
+                redir = validate_public_http_url(resp.headers["location"])
+                async with client.stream("GET", redir, headers=headers) as r2:
+                    if r2.status_code >= 400:
+                        raise MediaServiceError(502, "MEDIA_CDN_ERROR", f"Upstream CDN returned HTTP {r2.status_code}.")
+                    with open(dest_path, "wb") as fh:
+                        async for chunk in r2.aiter_bytes(65536):
+                            written += len(chunk)
+                            if written > max_bytes:
+                                raise MediaServiceError(413, "MEDIA_FILE_TOO_LARGE", "Stream exceeds maximum configured file size.")
+                            await asyncio.to_thread(fh.write, chunk)
+                return
+            if resp.status_code >= 400:
+                raise MediaServiceError(502, "MEDIA_CDN_ERROR", f"Upstream CDN returned HTTP {resp.status_code}.")
+            with open(dest_path, "wb") as fh:
+                async for chunk in resp.aiter_bytes(65536):
+                    written += len(chunk)
+                    if written > max_bytes:
+                        raise MediaServiceError(413, "MEDIA_FILE_TOO_LARGE", "Stream exceeds maximum configured file size.")
+                    await asyncio.to_thread(fh.write, chunk)
+    finally:
+        await client.aclose()
+
+
+async def _run_ffmpeg_cmd(args: List[str]) -> None:
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr_bytes = await proc.communicate()
+    if proc.returncode != 0:
+        err_snip = stderr_bytes.decode("utf-8", errors="replace")[-300:]
+        raise MediaServiceError(502, "FFMPEG_FAILED", f"FFmpeg processing failed: {err_snip}")
+
+
+async def _transcode_or_mux_extracted_info(
+    info: Dict[str, Any],
+    runtime_cfg: MediaRuntimeConfig,
+    *,
+    media_type: str,
+    fmt: str,
+    max_height: Optional[int],
+    bitrate: str,
+    out_dir: str,
+) -> Optional[Path]:
+    """Transcode audio or mux video+audio from already-extracted stream URLs cleanly."""
+    vid_stream, aud_stream = _pick_mux_or_audio_sources(info, media_type=media_type, fmt=fmt, max_height=max_height)
+    if media_type == "audio" and not aud_stream:
+        return None
+    if media_type == "video" and (not vid_stream or not aud_stream):
+        return None
+
+    ffmpeg_bin = _require_ffmpeg()
+    max_bytes = int(runtime_cfg.max_file_size_mb) * 1024 * 1024
+    default_hdrs = {str(k): str(v) for k, v in (info.get("http_headers") or {}).items()}
+    safe_title = str(info.get("title") or "")[:150]
+    safe_artist = str(info.get("artist") or info.get("channel") or info.get("uploader") or "")[:120]
+
+    if media_type == "audio" and aud_stream is not None:
+        aext = (aud_stream.get("ext") or "m4a").lower()
+        src_path = Path(out_dir) / f"src_audio.{aext}"
+        ahdrs = {**default_hdrs, **{str(k): str(v) for k, v in (aud_stream.get("http_headers") or {}).items()}}
+        await _fetch_cdn_file(str(aud_stream["url"]), ahdrs, src_path, max_bytes)
+        out_ext = fmt if fmt in ("mp3", "m4a", "opus", "wav", "flac") else "mp3"
+        out_path = Path(out_dir) / f"out.{out_ext}"
+        codec_args = {
+            "mp3": ["-c:a", "libmp3lame", "-b:a", f"{bitrate}k"],
+            "m4a": ["-c:a", "aac", "-b:a", f"{bitrate}k"],
+            "opus": ["-c:a", "libopus", "-b:a", f"{bitrate}k"],
+            "wav": ["-c:a", "pcm_s16le"],
+            "flac": ["-c:a", "flac"],
+        }[out_ext]
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-v",
+            "error",
+            "-i",
+            str(src_path),
+            "-vn",
+            *codec_args,
+            "-metadata",
+            f"title={safe_title}",
+            "-metadata",
+            f"artist={safe_artist}",
+            str(out_path),
+        ]
+        await _run_ffmpeg_cmd(cmd)
+        src_path.unlink(missing_ok=True)
+        return out_path
+
+    assert vid_stream is not None and aud_stream is not None
+    vext = (vid_stream.get("ext") or "mp4").lower()
+    aext = (aud_stream.get("ext") or "m4a").lower()
+    vid_path = Path(out_dir) / f"src_video.{vext}"
+    aud_path = Path(out_dir) / f"src_audio.{aext}"
+    vhdrs = {**default_hdrs, **{str(k): str(v) for k, v in (vid_stream.get("http_headers") or {}).items()}}
+    ahdrs = {**default_hdrs, **{str(k): str(v) for k, v in (aud_stream.get("http_headers") or {}).items()}}
+    await asyncio.gather(
+        _fetch_cdn_file(str(vid_stream["url"]), vhdrs, vid_path, max_bytes),
+        _fetch_cdn_file(str(aud_stream["url"]), ahdrs, aud_path, max_bytes),
+    )
+    out_ext = "webm" if fmt == "webm" else "mp4"
+    out_path = Path(out_dir) / f"out.{out_ext}"
+    acodec_arg = "copy" if ((out_ext == "mp4" and aext in ("m4a", "aac", "mp4")) or (out_ext == "webm" and aext in ("webm", "opus"))) else ("aac" if out_ext == "mp4" else "libopus")
+    vcodec_arg = "copy" if ((out_ext == "mp4" and vext == "mp4") or (out_ext == "webm" and vext == "webm")) else ("libx264" if out_ext == "mp4" else "copy")
+    extra_flags = ["-movflags", "+faststart"] if out_ext == "mp4" else []
+    cmd = [
+        ffmpeg_bin,
+        "-y",
+        "-v",
+        "error",
+        "-i",
+        str(vid_path),
+        "-i",
+        str(aud_path),
+        "-c:v",
+        vcodec_arg,
+        "-c:a",
+        acodec_arg,
+        *extra_flags,
+        str(out_path),
+    ]
+    await _run_ffmpeg_cmd(cmd)
+    vid_path.unlink(missing_ok=True)
+    aud_path.unlink(missing_ok=True)
+    return out_path
+
+
 async def _download_with_ytdlp_to_dir(
     target_url: str,
     runtime_cfg: MediaRuntimeConfig,
@@ -1059,8 +1262,33 @@ async def _download_with_ytdlp_to_dir(
     max_height: Optional[int],
     bitrate: str,
     out_dir: str,
+    extracted_info: Optional[Dict[str, Any]] = None,
 ) -> Path:
-    """Download/transcode audio or muxed video into an isolated directory using yt-dlp + FFmpeg."""
+    """Download/transcode audio or muxed video into an isolated directory cleanly."""
+    if extracted_info is not None:
+        try:
+            fast_path = await _transcode_or_mux_extracted_info(
+                extracted_info,
+                runtime_cfg,
+                media_type=media_type,
+                fmt=fmt,
+                max_height=max_height,
+                bitrate=bitrate,
+                out_dir=out_dir,
+            )
+            if fast_path is not None and fast_path.is_file():
+                max_bytes = int(runtime_cfg.max_file_size_mb) * 1024 * 1024
+                if fast_path.stat().st_size > max_bytes:
+                    raise MediaServiceError(
+                        413,
+                        "MEDIA_FILE_TOO_LARGE",
+                        f"Processed file exceeds maximum size limit ({runtime_cfg.max_file_size_mb} MB).",
+                    )
+                return fast_path
+        except MediaServiceError as exc:
+            if exc.error_code == "MEDIA_FILE_TOO_LARGE" or exc.error_code == "FFMPEG_UNAVAILABLE":
+                raise
+
     yt_dlp = _import_yt_dlp()
     ffmpeg_bin = _require_ffmpeg()
 
@@ -1301,6 +1529,7 @@ async def prepare_media_download(
             max_height=max_height,
             bitrate=bitrate,
             out_dir=tmp_dir,
+            extracted_info=info,
         )
     except Exception:
         shutil.rmtree(tmp_dir, ignore_errors=True)

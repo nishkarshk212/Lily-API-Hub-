@@ -281,7 +281,7 @@ def test_media_streaming_signed_file_playground_and_revocation(client, test_env,
     # 2. FFmpeg MP3 download + temp directory cleanup
     created_dirs = []
 
-    async def fake_dl_dir(target_url, runtime_cfg, *, media_type, fmt, max_height, bitrate, out_dir):
+    async def fake_dl_dir(target_url, runtime_cfg, *, media_type, fmt, max_height, bitrate, out_dir, extracted_info=None):
         created_dirs.append(Path(out_dir))
         out = Path(out_dir) / f"song.{fmt}"
         out.write_bytes(b"ID3_FAKE_MP3_BYTES")
