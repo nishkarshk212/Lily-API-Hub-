@@ -10,7 +10,7 @@ import json
 import socket
 import threading
 import time
-from typing import Any, Deque, Dict, Optional, Tuple
+from typing import Any, Deque, Dict, Optional, Tuple, Union
 import uuid
 
 from fastapi import Request, Response
@@ -19,7 +19,7 @@ import httpx
 from sqlalchemy import case, or_, update
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.security import decrypt_secret, sha256_hex, utc_now
 from app.models.api_key import ApiKey
 from app.models.gateway import ApiRequestLog, MasterGatewayConfig
@@ -27,6 +27,33 @@ from app.models.plan import Subscription, SubscriptionPlan
 from app.models.user import User
 from app.services.auth_service import as_utc, get_client_ip
 from app.services.branding_service import get_effective_branding
+from app.services.media_service import (
+    MediaServiceError,
+    build_media_streaming_response,
+    get_media_info,
+    parse_media_action,
+    prepare_media_download,
+    resolve_media_params,
+    search_media,
+    verify_media_file_token,
+)
+
+BUILTIN_ENDPOINT_PATHS = [
+    "/v1/status",
+    "/v1/network/echo",
+    "/v1/network/dns",
+    "/v1/crypto/hash",
+    "/v1/crypto/uuid",
+    "/v1/geo/ip-parse",
+    "/v1/utils/timestamp",
+    "/v1/utils/json-validate",
+    "/v1/media/search",
+    "/v1/media/info",
+    "/v1/media/audio",
+    "/v1/media/video",
+    "/v1/media/download",
+    "/v1/media/file",
+]
 
 
 class SlidingWindowRateLimiter:
@@ -342,7 +369,233 @@ async def _best_effort_gateway_alert(
         pass
 
 
-async def execute_gateway_core(
+def _resolve_public_origin(headers_map: Dict[str, str], cfg: Settings) -> str:
+    lowered = {k.lower(): v for k, v in headers_map.items()}
+    host = (lowered.get("x-forwarded-host") or lowered.get("host") or "").split(",")[0].strip()
+    if host and not host.endswith(".local"):
+        raw_proto = (lowered.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+        proto = raw_proto if raw_proto in ("http", "https") else ("https" if cfg.is_production else "http")
+        return f"{proto}://{host}"
+    return cfg.APP_PUBLIC_URL.rstrip("/")
+
+
+async def _handle_media_gateway_action(
+    db: Session,
+    *,
+    media_action: str,
+    upper_method: str,
+    full_path: str,
+    query_map: Dict[str, str],
+    logged_query_str: str,
+    body_bytes: bytes,
+    headers_map: Dict[str, str],
+    client_ip: str,
+    user: User,
+    api_key: ApiKey,
+    sub: Subscription,
+    plan: SubscriptionPlan,
+    common_headers: Dict[str, str],
+    daily_rem: int,
+    monthly_rem: int,
+    started: float,
+    token_data: Optional[Dict[str, str]],
+    allow_streaming: bool,
+    cfg: Settings,
+) -> Union[Response, Tuple[int, Dict[str, str], bytes, str]]:
+    if upper_method not in ("GET", "POST") or (media_action == "file" and upper_method != "GET"):
+        latency = (time.perf_counter() - started) * 1000
+        _log_gateway_request(
+            db,
+            user_id=user.id,
+            api_key_id=api_key.id,
+            subscription_id=sub.id,
+            method=upper_method,
+            path=full_path,
+            query_string=logged_query_str,
+            status_code=405,
+            upstream_status_code=None,
+            latency_ms=latency,
+            client_ip=client_ip,
+            gateway_mode="builtin",
+            error_code="METHOD_NOT_ALLOWED",
+        )
+        return _json_gateway_result(
+            405,
+            {"error": "METHOD_NOT_ALLOWED", "message": f"Method {upper_method} not supported on {full_path}."},
+            headers=common_headers,
+        )
+
+    body_json = None
+    if body_bytes:
+        try:
+            body_json = json.loads(body_bytes.decode("utf-8"))
+        except Exception:
+            body_json = None
+
+    params = resolve_media_params(query_map, body_json)
+    if media_action == "file" and token_data is None:
+        return _json_gateway_result(
+            400,
+            {"error": "MISSING_MEDIA_TOKEN", "message": "Provide a valid signed 'token' parameter from /v1/media/info."},
+            headers={**common_headers, "X-Gateway-Mode": "builtin"},
+        )
+    if token_data is not None:
+        params.update(
+            {
+                "url": token_data["u"],
+                "type": token_data.get("t", "audio"),
+                "format": token_data.get("f", "mp3"),
+                "quality": token_data.get("q", "720p"),
+                "bitrate": token_data.get("b", "192"),
+            }
+        )
+
+    if not allow_streaming and media_action in ("audio", "video", "download", "file"):
+        params["mode"] = "json"
+
+    public_origin = _resolve_public_origin(headers_map, cfg)
+    range_header = next((v for k, v in headers_map.items() if k.lower() == "range"), None)
+
+    try:
+        if media_action == "search":
+            limit_raw = params.get("limit", 5)
+            try:
+                limit_val = int(limit_raw)
+            except (TypeError, ValueError):
+                limit_val = 5
+            payload = await search_media(
+                db,
+                query=str(params.get("q") or params.get("query") or ""),
+                limit=limit_val,
+                api_key_id=api_key.id,
+                public_base_url=public_origin,
+                settings=cfg,
+            )
+            status_out, resp_out = 200, _json_gateway_result(200, payload, headers={**common_headers, "X-Gateway-Mode": "builtin"})
+        elif media_action == "info":
+            payload = await get_media_info(
+                db,
+                params=params,
+                api_key_id=api_key.id,
+                public_base_url=public_origin,
+                settings=cfg,
+            )
+            status_out, resp_out = 200, _json_gateway_result(200, payload, headers={**common_headers, "X-Gateway-Mode": "builtin"})
+        else:
+            effective_action = token_data.get("t", "audio") if (media_action == "file" and token_data) else media_action
+            prepared = await prepare_media_download(
+                db,
+                action=effective_action,
+                params=params,
+                api_key_id=api_key.id,
+                public_base_url=public_origin,
+                range_header=range_header,
+                settings=cfg,
+            )
+            if prepared.mode == "json" or not allow_streaming:
+                status_out = prepared.status_code
+                resp_out = _json_gateway_result(
+                    status_out,
+                    prepared.json_payload or {},
+                    headers={**common_headers, "X-Gateway-Mode": "builtin"},
+                )
+            else:
+                stream_headers = {**common_headers, "X-Gateway-Mode": "builtin"}
+                stream_resp = await build_media_streaming_response(prepared, headers=stream_headers)
+                latency = (time.perf_counter() - started) * 1000
+                _log_gateway_request(
+                    db,
+                    user_id=user.id,
+                    api_key_id=api_key.id,
+                    subscription_id=sub.id,
+                    method=upper_method,
+                    path=full_path,
+                    query_string=logged_query_str,
+                    status_code=stream_resp.status_code,
+                    upstream_status_code=None,
+                    latency_ms=latency,
+                    client_ip=client_ip,
+                    gateway_mode="builtin",
+                )
+                await _best_effort_gateway_alert(
+                    db,
+                    user_id=user.id,
+                    full_path=full_path,
+                    status_code=stream_resp.status_code,
+                    error_code=None,
+                    plan_name=plan.name,
+                    daily_limit=plan.daily_request_limit,
+                    daily_rem=daily_rem,
+                    monthly_limit=plan.monthly_request_limit,
+                    monthly_rem=monthly_rem,
+                )
+                return stream_resp
+
+        latency = (time.perf_counter() - started) * 1000
+        _log_gateway_request(
+            db,
+            user_id=user.id,
+            api_key_id=api_key.id,
+            subscription_id=sub.id,
+            method=upper_method,
+            path=full_path,
+            query_string=logged_query_str,
+            status_code=status_out,
+            upstream_status_code=None,
+            latency_ms=latency,
+            client_ip=client_ip,
+            gateway_mode="builtin",
+        )
+        await _best_effort_gateway_alert(
+            db,
+            user_id=user.id,
+            full_path=full_path,
+            status_code=status_out,
+            error_code=None,
+            plan_name=plan.name,
+            daily_limit=plan.daily_request_limit,
+            daily_rem=daily_rem,
+            monthly_limit=plan.monthly_request_limit,
+            monthly_rem=monthly_rem,
+        )
+        return resp_out
+    except MediaServiceError as exc:
+        latency = (time.perf_counter() - started) * 1000
+        _log_gateway_request(
+            db,
+            user_id=user.id,
+            api_key_id=api_key.id,
+            subscription_id=sub.id,
+            method=upper_method,
+            path=full_path,
+            query_string=logged_query_str,
+            status_code=exc.status_code,
+            upstream_status_code=None,
+            latency_ms=latency,
+            client_ip=client_ip,
+            gateway_mode="builtin",
+            error_code=exc.error_code,
+        )
+        await _best_effort_gateway_alert(
+            db,
+            user_id=user.id,
+            full_path=full_path,
+            status_code=exc.status_code,
+            error_code=exc.error_code if exc.status_code >= 500 else None,
+            plan_name=plan.name,
+            daily_limit=plan.daily_request_limit,
+            daily_rem=daily_rem,
+            monthly_limit=plan.monthly_request_limit,
+            monthly_rem=monthly_rem,
+        )
+        return _json_gateway_result(
+            exc.status_code,
+            exc.to_payload(),
+            headers={**common_headers, "X-Gateway-Mode": "builtin"},
+        )
+
+
+async def _execute_gateway_pipeline(
     db: Session,
     *,
     method: str,
@@ -353,59 +606,91 @@ async def execute_gateway_core(
     req_headers: Optional[Dict[str, str]] = None,
     client_ip: str = "127.0.0.1",
     raw_api_key: Optional[str] = None,
-) -> Tuple[int, Dict[str, str], bytes, str]:
-    """Core gateway pipeline reusable by HTTP /v1/* routes and internal Telegram Bot runners."""
+    allow_streaming: bool = False,
+) -> Union[Response, Tuple[int, Dict[str, str], bytes, str]]:
+    """Shared gateway pipeline supporting JSON responses and direct binary media streaming."""
     started = time.perf_counter()
     upper_method = method.upper()
     full_path = f"/v1/{subpath.lstrip('/')}"
     query_map = dict(query_dict or {})
     headers_map = dict(req_headers or {})
+    cfg = get_settings()
 
     gw = db.get(MasterGatewayConfig, 1)
     gw_mode = gw.gateway_mode if gw else "hybrid"
+    media_action = parse_media_action(subpath)
+    logged_query_str = "token=[signed]" if media_action == "file" and query_map.get("token") else query_str
 
-    raw_key = raw_api_key or extract_api_key_from_headers(headers_map, db)
-    if not raw_key:
-        latency = (time.perf_counter() - started) * 1000
-        _log_gateway_request(
-            db,
-            user_id=None,
-            api_key_id=None,
-            subscription_id=None,
-            method=upper_method,
-            path=full_path,
-            query_string=query_str,
-            status_code=401,
-            upstream_status_code=None,
-            latency_ms=latency,
-            client_ip=client_ip,
-            gateway_mode=gw_mode,
-            error_code="MISSING_API_KEY",
-        )
-        return _json_gateway_result(
-            401,
-            {"error": "MISSING_API_KEY", "message": "Provide X-API-Key or Authorization: Bearer <api_key>."},
-        )
+    token_data: Optional[Dict[str, str]] = None
+    api_key: Optional[ApiKey] = None
 
-    api_key = db.query(ApiKey).filter(ApiKey.key_hash == sha256_hex(raw_key)).first()
-    if not api_key:
-        latency = (time.perf_counter() - started) * 1000
-        _log_gateway_request(
-            db,
-            user_id=None,
-            api_key_id=None,
-            subscription_id=None,
-            method=upper_method,
-            path=full_path,
-            query_string=query_str,
-            status_code=401,
-            upstream_status_code=None,
-            latency_ms=latency,
-            client_ip=client_ip,
-            gateway_mode=gw_mode,
-            error_code="INVALID_API_KEY",
-        )
-        return _json_gateway_result(401, {"error": "INVALID_API_KEY", "message": "API key is invalid."})
+    if media_action == "file" and query_map.get("token"):
+        try:
+            token_data = verify_media_file_token(str(query_map["token"]), settings=cfg)
+        except MediaServiceError as exc:
+            latency = (time.perf_counter() - started) * 1000
+            _log_gateway_request(
+                db,
+                user_id=None,
+                api_key_id=None,
+                subscription_id=None,
+                method=upper_method,
+                path=full_path,
+                query_string=logged_query_str,
+                status_code=exc.status_code,
+                upstream_status_code=None,
+                latency_ms=latency,
+                client_ip=client_ip,
+                gateway_mode=gw_mode,
+                error_code=exc.error_code,
+            )
+            return _json_gateway_result(exc.status_code, exc.to_payload())
+        api_key = db.get(ApiKey, token_data["k"])
+        if not api_key:
+            return _json_gateway_result(401, {"error": "INVALID_MEDIA_TOKEN", "message": "Media token key no longer exists."})
+    else:
+        raw_key = raw_api_key or extract_api_key_from_headers(headers_map, db)
+        if not raw_key:
+            latency = (time.perf_counter() - started) * 1000
+            _log_gateway_request(
+                db,
+                user_id=None,
+                api_key_id=None,
+                subscription_id=None,
+                method=upper_method,
+                path=full_path,
+                query_string=logged_query_str,
+                status_code=401,
+                upstream_status_code=None,
+                latency_ms=latency,
+                client_ip=client_ip,
+                gateway_mode=gw_mode,
+                error_code="MISSING_API_KEY",
+            )
+            return _json_gateway_result(
+                401,
+                {"error": "MISSING_API_KEY", "message": "Provide X-API-Key or Authorization: Bearer <api_key>."},
+            )
+
+        api_key = db.query(ApiKey).filter(ApiKey.key_hash == sha256_hex(raw_key)).first()
+        if not api_key:
+            latency = (time.perf_counter() - started) * 1000
+            _log_gateway_request(
+                db,
+                user_id=None,
+                api_key_id=None,
+                subscription_id=None,
+                method=upper_method,
+                path=full_path,
+                query_string=logged_query_str,
+                status_code=401,
+                upstream_status_code=None,
+                latency_ms=latency,
+                client_ip=client_ip,
+                gateway_mode=gw_mode,
+                error_code="INVALID_API_KEY",
+            )
+            return _json_gateway_result(401, {"error": "INVALID_API_KEY", "message": "API key is invalid."})
 
     if api_key.status != "active":
         latency = (time.perf_counter() - started) * 1000
@@ -619,6 +904,30 @@ async def execute_gateway_core(
     }
 
     if gw_mode in ("builtin", "hybrid"):
+        if media_action is not None:
+            return await _handle_media_gateway_action(
+                db,
+                media_action=media_action,
+                upper_method=upper_method,
+                full_path=full_path,
+                query_map=query_map,
+                logged_query_str=logged_query_str,
+                body_bytes=body_bytes,
+                headers_map=headers_map,
+                client_ip=client_ip,
+                user=user,
+                api_key=api_key,
+                sub=sub,
+                plan=plan,
+                common_headers=common_headers,
+                daily_rem=daily_rem,
+                monthly_rem=monthly_rem,
+                started=started,
+                token_data=token_data,
+                allow_streaming=allow_streaming,
+                cfg=cfg,
+            )
+
         builtin_result = _execute_builtin_endpoint(
             subpath,
             upper_method,
@@ -640,7 +949,7 @@ async def execute_gateway_core(
                 subscription_id=sub.id,
                 method=upper_method,
                 path=full_path,
-                query_string=query_str,
+                query_string=logged_query_str,
                 status_code=resp_status,
                 upstream_status_code=None,
                 latency_ms=latency,
@@ -674,7 +983,7 @@ async def execute_gateway_core(
                 subscription_id=sub.id,
                 method=upper_method,
                 path="/v1",
-                query_string=query_str,
+                query_string=logged_query_str,
                 status_code=200,
                 upstream_status_code=None,
                 latency_ms=latency,
@@ -689,16 +998,7 @@ async def execute_gateway_core(
                     "provider": b["company_name"],
                     "status": "operational",
                     "plan": plan.slug,
-                    "builtin_endpoints": [
-                        "/v1/status",
-                        "/v1/network/echo",
-                        "/v1/network/dns",
-                        "/v1/crypto/hash",
-                        "/v1/crypto/uuid",
-                        "/v1/geo/ip-parse",
-                        "/v1/utils/timestamp",
-                        "/v1/utils/json-validate",
-                    ],
+                    "builtin_endpoints": BUILTIN_ENDPOINT_PATHS,
                 },
                 headers=common_headers,
             )
@@ -710,7 +1010,7 @@ async def execute_gateway_core(
             subscription_id=sub.id,
             method=upper_method,
             path=full_path,
-            query_string=query_str,
+            query_string=logged_query_str,
             status_code=404,
             upstream_status_code=None,
             latency_ms=latency,
@@ -723,21 +1023,11 @@ async def execute_gateway_core(
             {
                 "error": "ENDPOINT_NOT_FOUND",
                 "message": f"No built-in endpoint at {full_path} and no external Upstream Master API URL is configured.",
-                "builtin_endpoints": [
-                    "/v1/status",
-                    "/v1/network/echo",
-                    "/v1/network/dns",
-                    "/v1/crypto/hash",
-                    "/v1/crypto/uuid",
-                    "/v1/geo/ip-parse",
-                    "/v1/utils/timestamp",
-                    "/v1/utils/json-validate",
-                ],
+                "builtin_endpoints": BUILTIN_ENDPOINT_PATHS,
             },
             headers=common_headers,
         )
 
-    cfg = get_settings()
     master_key = decrypt_secret(gw.encrypted_master_api_key, cfg) if gw else None
     if not master_key and cfg.MASTER_API_KEY:
         master_key = cfg.MASTER_API_KEY.strip()
@@ -846,9 +1136,38 @@ async def execute_gateway_core(
         )
 
 
+async def execute_gateway_core(
+    db: Session,
+    *,
+    method: str,
+    subpath: str,
+    query_dict: Optional[Dict[str, str]] = None,
+    query_str: str = "",
+    body_bytes: bytes = b"",
+    req_headers: Optional[Dict[str, str]] = None,
+    client_ip: str = "127.0.0.1",
+    raw_api_key: Optional[str] = None,
+) -> Tuple[int, Dict[str, str], bytes, str]:
+    """Core gateway pipeline reusable by JSON callers and internal Telegram Bot runners."""
+    result = await _execute_gateway_pipeline(
+        db,
+        method=method,
+        subpath=subpath,
+        query_dict=query_dict,
+        query_str=query_str,
+        body_bytes=body_bytes,
+        req_headers=req_headers,
+        client_ip=client_ip,
+        raw_api_key=raw_api_key,
+        allow_streaming=False,
+    )
+    assert isinstance(result, tuple)
+    return result
+
+
 async def handle_gateway_request(request: Request, subpath: str, db: Session) -> Response:
     body_bytes = await request.body()
-    status_code, resp_headers, content, media_type = await execute_gateway_core(
+    result = await _execute_gateway_pipeline(
         db,
         method=request.method,
         subpath=subpath,
@@ -857,7 +1176,11 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
         body_bytes=body_bytes,
         req_headers=dict(request.headers),
         client_ip=get_client_ip(request),
+        allow_streaming=True,
     )
+    if isinstance(result, Response):
+        return result
+    status_code, resp_headers, content, media_type = result
     return Response(
         content=content,
         status_code=status_code,

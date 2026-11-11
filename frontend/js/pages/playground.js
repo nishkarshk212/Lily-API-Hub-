@@ -178,6 +178,11 @@ export async function renderPlaygroundPage(state, handlers) {
                   <span class="badge badge-${respStatusColor}">HTTP ${lastResult.status_code}</span>
                   <span class="badge badge-info mono">${lastResult.latency_ms} ms</span>
                   <span class="badge badge-neutral mono">${lastResult.size_bytes} B</span>
+                  ${
+                    lastResult.body?.download_url
+                      ? `<a class="btn btn-primary btn-sm" href="${esc(lastResult.body.download_url)}" target="_blank" rel="noopener">Download File</a>`
+                      : ""
+                  }
                   <button class="btn btn-ghost btn-sm" id="pg-copy-resp">Copy JSON</button>
                 `
                     : `<span class="badge badge-neutral">Ready</span>`
@@ -185,9 +190,30 @@ export async function renderPlaygroundPage(state, handlers) {
               </div>
             </div>
 
+            ${
+              lastResult?.body?.binary && lastResult.body.preview_base64
+                ? `
+              <div style="margin-bottom:14px;padding:12px;border-radius:10px;background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.25);">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+                  <span class="mono" style="font-size:12.5px;color:var(--neon-cyan);">${esc(lastResult.body.filename)} (${esc(lastResult.body.mime_type)})</span>
+                  <a class="btn btn-primary btn-sm" download="${esc(lastResult.body.filename)}" href="data:${esc(lastResult.body.mime_type)};base64,${lastResult.body.preview_base64}">Download ${esc(lastResult.body.filename)}</a>
+                </div>
+                ${
+                  String(lastResult.body.mime_type || "").startsWith("video/")
+                    ? `<video controls style="width:100%;max-height:280px;border-radius:8px;" src="data:${esc(lastResult.body.mime_type)};base64,${lastResult.body.preview_base64}"></video>`
+                    : `<audio controls style="width:100%;" src="data:${esc(lastResult.body.mime_type)};base64,${lastResult.body.preview_base64}"></audio>`
+                }
+              </div>`
+                : ""
+            }
+
             <pre class="response-pre" id="pg-resp-body">${
               lastResult
-                ? highlightJson(lastResult.body)
+                ? highlightJson(
+                    lastResult.body?.binary
+                      ? { ...lastResult.body, preview_base64: lastResult.body.preview_base64 ? "[omitted base64 preview]" : null }
+                      : lastResult.body
+                  )
                 : `<span style="color:var(--text-muted);">// Click "Send Live API Request" to inspect the formatted JSON response, status code, and ${esc(brand.companyName)} rate-limit headers.</span>`
             }</pre>
 

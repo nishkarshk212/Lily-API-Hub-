@@ -103,3 +103,24 @@ class EmailOutbox(Base):
     sent_via: Mapped[str] = mapped_column(String(24), nullable=False, default="local_outbox")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
+
+class MediaGatewayConfig(Base):
+    """Singleton configuration & encrypted credentials for the built-in /v1/media/* engine."""
+
+    __tablename__ = "media_gateway_config"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    media_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    encrypted_youtube_cookies: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cookies_fingerprint: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    encrypted_youtube_api_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    youtube_api_key_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    max_duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=1200)
+    max_file_size_mb: Mapped[int] = mapped_column(Integer, nullable=False, default=250)
+    default_audio_format: Mapped[str] = mapped_column(String(16), nullable=False, default="mp3")
+    default_video_quality: Mapped[str] = mapped_column(String(16), nullable=False, default="720p")
+    updated_by_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
+    )
+

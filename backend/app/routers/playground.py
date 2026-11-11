@@ -1,8 +1,10 @@
 """API Testing Playground executor targeting the live gateway middleware."""
 
+import base64
 import json
+import re
 import time
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 import httpx
@@ -76,11 +78,29 @@ async def execute_playground_request(
 
     parsed_body = None
     is_json = False
-    try:
-        parsed_body = resp.json()
-        is_json = True
-    except Exception:
-        parsed_body = resp.text
+    ctype = (resp.headers.get("content-type") or "").lower()
+    if ctype.startswith(("audio/", "video/", "application/octet-stream")):
+        disp = resp.headers.get("content-disposition") or ""
+        fn_star = re.search(r"filename\*=UTF-8''([^;\s]+)", disp)
+        fn_plain = re.search(r'filename="([^"]+)"', disp)
+        filename = unquote(fn_star.group(1)) if fn_star else (fn_plain.group(1) if fn_plain else "download.bin")
+        size_b = len(resp.content)
+        parsed_body = {
+            "binary": True,
+            "mime_type": ctype.split(";")[0].strip(),
+            "filename": filename,
+            "size_bytes": size_b,
+            "preview_base64": base64.b64encode(resp.content).decode("ascii") if size_b <= 8 * 1024 * 1024 else None,
+            "note": "Use ?mode=json to retrieve signed download_url without buffering binary in the Playground."
+            if size_b > 8 * 1024 * 1024
+            else "Binary media streamed cleanly from gateway.",
+        }
+    else:
+        try:
+            parsed_body = resp.json()
+            is_json = True
+        except Exception:
+            parsed_body = resp.text
 
     return {
         "status_code": resp.status_code,

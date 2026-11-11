@@ -82,6 +82,46 @@ BUILTIN_ENDPOINTS_CATALOG = [
         "sample_query": {},
         "sample_body": {"network": "Sonic", "hub": "Beta", "version": 2},
     },
+    {
+        "method": "GET",
+        "path": "/v1/media/search",
+        "title": "Search Songs & Videos (YouTube)",
+        "description": "Search songs, tracks, or videos by title/query and receive metadata + ready-to-download links.",
+        "sample_query": {"q": "kesariya hindi song", "limit": "5"},
+        "sample_body": None,
+    },
+    {
+        "method": "GET",
+        "path": "/v1/media/info",
+        "title": "Full Media Details & All Formats",
+        "description": "Fetch full video/song metadata: music tags, channel stats, chapters, captions, thumbnails, audio/video streams & signed download links.",
+        "sample_query": {"q": "kesariya hindi song"},
+        "sample_body": None,
+    },
+    {
+        "method": "GET",
+        "path": "/v1/media/audio",
+        "title": "Download / Stream Song Audio (MP3 / M4A / Original)",
+        "description": "Download or stream audio from a URL, video ID, or song search query. Pass mode=json for signed link metadata.",
+        "sample_query": {"q": "kesariya hindi song", "format": "mp3", "bitrate": "192", "mode": "json"},
+        "sample_body": None,
+    },
+    {
+        "method": "GET",
+        "path": "/v1/media/video",
+        "title": "Download / Stream Video (360p / 720p / 1080p / Best)",
+        "description": "Download or stream MP4/WebM video at chosen resolution. Automatically merges HD video+audio streams server-side.",
+        "sample_query": {"q": "kesariya hindi song", "quality": "720p", "format": "mp4", "mode": "json"},
+        "sample_body": None,
+    },
+    {
+        "method": "GET",
+        "path": "/v1/media/download",
+        "title": "Unified Song / Video / Details Downloader",
+        "description": "Single endpoint accepting type=audio|video|info, format, quality, and url|id|q.",
+        "sample_query": {"q": "kesariya hindi song", "type": "audio", "format": "mp3", "mode": "json"},
+        "sample_body": None,
+    },
 ]
 
 FAQS = [

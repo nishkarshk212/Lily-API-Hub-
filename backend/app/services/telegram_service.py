@@ -64,6 +64,10 @@ DEFAULT_BOT_COMMANDS = [
     {"command": "dns", "description": "DNS lookup (/dns example.com)"},
     {"command": "time", "description": "Sync atomic UTC time"},
     {"command": "json", "description": "Validate JSON (/json {\"ok\":true})"},
+    {"command": "ytsearch", "description": "Search songs/videos (/ytsearch kesariya)"},
+    {"command": "ytinfo", "description": "Full media details (/ytinfo <url|query>)"},
+    {"command": "song", "description": "Song/audio download (/song <url|query>)"},
+    {"command": "video", "description": "Video download (/video <url|query>)"},
     {"command": "call", "description": "Call any /v1/* endpoint"},
     {"command": "ask", "description": "Query custom proxy endpoint"},
     {"command": "alerts", "description": "Manage real-time alerts"},
@@ -1044,11 +1048,30 @@ async def _reply_with_gateway_call(
         f"{quota_line}\n\n"
         f"<pre>{_e(snippet)}</pre>"
     )
+    rows = []
+    if status_code == 200:
+        try:
+            parsed_json = json.loads(pretty_body)
+            if isinstance(parsed_json, dict):
+                dl_url = parsed_json.get("download_url") or (
+                    (parsed_json.get("downloads") or {}).get("audio", {}).get("mp3_192kbps", {}).get("signed_url")
+                )
+                vid_url = (parsed_json.get("downloads") or {}).get("video", {}).get("720p", {}).get("signed_url")
+                btn_row = []
+                if isinstance(dl_url, str) and dl_url.startswith("https://"):
+                    btn_row.append(ikb_button("⬇️ Download Audio / File", url=dl_url, style=ButtonStyle.SUCCESS))
+                if isinstance(vid_url, str) and vid_url.startswith("https://") and vid_url != dl_url:
+                    btn_row.append(ikb_button("🎬 Download 720p Video", url=vid_url, style=ButtonStyle.PRIMARY))
+                if btn_row:
+                    rows.append(btn_row)
+        except Exception:
+            pass
     back_row = [ikb_button("🔄 Quick Tools", callback_data="m:tools", style=ButtonStyle.PRIMARY)]
     if override_key_id:
         back_row.append(ikb_button("📊 Key Usage", callback_data=f"k:usg:{override_key_id}", style=ButtonStyle.SUCCESS))
     back_row.append(ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT))
-    kb = ikb_markup([back_row])
+    rows.append(back_row)
+    kb = ikb_markup(rows)
     if edit_message_id:
         await responder.edit_or_send(chat_id, edit_message_id, msg, reply_markup=kb)
     else:
@@ -1068,6 +1091,10 @@ def _format_help_text(bot: TelegramBot, brand: Dict[str, str], is_privileged: bo
         "• <code>/dns &lt;domain&gt;</code> — Live DNS A/AAAA lookup",
         "• <code>/time</code> — Atomic UTC &amp; Unix timestamps",
         "• <code>/json &lt;payload&gt;</code> — Validate &amp; size JSON payload",
+        "• <code>/ytsearch &lt;query&gt;</code> — Search songs &amp; videos",
+        "• <code>/ytinfo &lt;url|query&gt;</code> — Full media details &amp; formats",
+        "• <code>/song &lt;url|query&gt;</code> — Audio/MP3 download link &amp; metadata",
+        "• <code>/video &lt;url|query&gt;</code> — Video download link &amp; metadata",
         "• <code>/call GET /v1/status</code> — Execute any /v1/* endpoint",
         "• <code>/ask &lt;query&gt;</code> — Call configured custom upstream route",
         "• <code>/plans</code> — View all plans &amp; quotas",
@@ -2027,6 +2054,55 @@ async def _handle_text_or_command(
             return "error", "json:invalid"
         return await _reply_with_gateway_call(
             db, responder, bot, actor_user, chat_id, method="POST", path="/v1/utils/json-validate", body_obj=parsed
+        )
+
+    if cmd in ("/ytsearch", "/search"):
+        if not arg:
+            await responder.send(chat_id, "Usage: <code>/ytsearch &lt;song or video query&gt;</code>")
+            return "error", "ytsearch:validation"
+        return await _reply_with_gateway_call(
+            db, responder, bot, actor_user, chat_id, method="GET", path="/v1/media/search", query_dict={"q": arg, "limit": "5"}
+        )
+
+    if cmd in ("/ytinfo", "/yt"):
+        if not arg:
+            await responder.send(chat_id, "Usage: <code>/ytinfo &lt;youtube url, id, or query&gt;</code>")
+            return "error", "ytinfo:validation"
+        qkey = "url" if arg.startswith(("http://", "https://")) else "q"
+        return await _reply_with_gateway_call(
+            db, responder, bot, actor_user, chat_id, method="GET", path="/v1/media/info", query_dict={qkey: arg}
+        )
+
+    if cmd == "/song":
+        if not arg:
+            await responder.send(chat_id, "Usage: <code>/song &lt;song name or youtube url&gt;</code>")
+            return "error", "song:validation"
+        qkey = "url" if arg.startswith(("http://", "https://")) else "q"
+        return await _reply_with_gateway_call(
+            db,
+            responder,
+            bot,
+            actor_user,
+            chat_id,
+            method="GET",
+            path="/v1/media/audio",
+            query_dict={qkey: arg, "format": "mp3", "mode": "json"},
+        )
+
+    if cmd == "/video":
+        if not arg:
+            await responder.send(chat_id, "Usage: <code>/video &lt;video query or youtube url&gt;</code>")
+            return "error", "video:validation"
+        qkey = "url" if arg.startswith(("http://", "https://")) else "q"
+        return await _reply_with_gateway_call(
+            db,
+            responder,
+            bot,
+            actor_user,
+            chat_id,
+            method="GET",
+            path="/v1/media/video",
+            query_dict={qkey: arg, "quality": "720p", "mode": "json"},
         )
 
     if cmd == "/call":

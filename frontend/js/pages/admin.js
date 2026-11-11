@@ -499,7 +499,7 @@ function renderRequestsTab(reqsRes, requestStatusFilter, requestSearch) {
   `;
 }
 
-function renderMasterTab(masterCfg, brand) {
+function renderMasterTab(masterCfg, brand, mediaCfg) {
   return `
     <div class="admin-panel" style="--panel-accent:#2563eb;">
       <div class="admin-panel-head">
@@ -549,6 +549,73 @@ function renderMasterTab(masterCfg, brand) {
         </label>
 
         <button type="submit" class="btn btn-primary" id="mc-save-btn">Save Master Gateway Config</button>
+      </form>
+    </div>
+
+    <div class="admin-panel" style="--panel-accent:#059669;margin-top:20px;">
+      <div class="admin-panel-head">
+        <div>
+          <h2>Built-in Media, Song, Audio &amp; Video API (<code>/v1/media/*</code>)</h2>
+          <p style="margin:3px 0 0;font-size:12.5px;color:var(--text-muted);">
+            Powers <code>/v1/media/search</code>, <code>/v1/media/info</code>, <code>/v1/media/audio</code>, <code>/v1/media/video</code> &amp; <code>/v1/media/download</code>. Credentials are Fernet-encrypted at rest.
+          </p>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="adm-test-media">Test Media Engine</button>
+      </div>
+
+      <form id="media-config-form">
+        <div class="two-col">
+          <div class="field">
+            <label>Max Duration Limit (seconds)</label>
+            <input class="input" type="number" id="med-max-dur" min="60" max="7200" value="${mediaCfg.max_duration_seconds || 1200}" />
+          </div>
+          <div class="field">
+            <label>Max Output File Size (MB)</label>
+            <input class="input" type="number" id="med-max-mb" min="10" max="2048" value="${mediaCfg.max_file_size_mb || 250}" />
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="field">
+            <label>Default Audio Format</label>
+            <select class="select" id="med-audio-fmt">
+              ${["mp3", "m4a", "opus", "webm", "original"]
+                .map((f) => `<option value="${f}" ${mediaCfg.default_audio_format === f ? "selected" : ""}>${f.toUpperCase()}</option>`)
+                .join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label>Default Video Quality</label>
+            <select class="select" id="med-video-q">
+              ${["best", "1080p", "720p", "480p", "360p", "240p"]
+                .map((q) => `<option value="${q}" ${mediaCfg.default_video_quality === q ? "selected" : ""}>${q}</option>`)
+                .join("")}
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>YouTube Data API v3 Key (optional, current: <span class="mono" style="color:#059669;">${esc(mediaCfg.youtube_api_key_fingerprint || "Not set")}</span>)</label>
+          <input class="input mono" type="password" id="med-yt-key" placeholder="Leave blank to keep existing encrypted YouTube Data API key" />
+          <label style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" id="med-clear-yt-key" /> Clear stored YouTube API key
+          </label>
+        </div>
+
+        <div class="field">
+          <label>Authorized YouTube Netscape <code>cookies.txt</code> (optional, current: <span class="mono" style="color:#059669;">${esc(mediaCfg.cookies_fingerprint || "Not set")}</span>)</label>
+          <textarea class="textarea mono" id="med-cookies" rows="4" placeholder="# Netscape HTTP Cookie File (paste to rotate; leave blank to keep existing)"></textarea>
+          <label style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" id="med-clear-cookies" /> Clear stored YouTube cookies
+          </label>
+        </div>
+
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:18px;font-size:13.5px;cursor:pointer;">
+          <input type="checkbox" id="med-enabled" ${mediaCfg.media_enabled !== false ? "checked" : ""} />
+          Enable built-in <code>/v1/media/*</code> search, metadata, audio &amp; video download APIs
+        </label>
+
+        <button type="submit" class="btn btn-primary" id="med-save-btn">Save Media API Config</button>
       </form>
     </div>
   `;
@@ -734,9 +801,9 @@ export async function renderAdminDashboardPage(state, handlers) {
   const brand = getBrand(state);
   root.innerHTML = `<div class="loading-screen"><div class="spinner-lg"></div><p>Loading ${esc(brand.companyName)} Admin Command Center...</p></div>`;
 
-  let analytics, usersRes, keysRes, plansRes, paymentsRes, reqsRes, masterCfg, auditRes, supportRes, outboxRes, brandingCfg, tgAdmin;
+  let analytics, usersRes, keysRes, plansRes, paymentsRes, reqsRes, masterCfg, mediaCfg, auditRes, supportRes, outboxRes, brandingCfg, tgAdmin;
   try {
-    [analytics, usersRes, keysRes, plansRes, paymentsRes, reqsRes, masterCfg, auditRes, supportRes, outboxRes, brandingCfg, tgAdmin] =
+    [analytics, usersRes, keysRes, plansRes, paymentsRes, reqsRes, masterCfg, mediaCfg, auditRes, supportRes, outboxRes, brandingCfg, tgAdmin] =
       await Promise.all([
         api.get("/api/admin/analytics"),
         api.get("/api/admin/users"),
@@ -745,6 +812,7 @@ export async function renderAdminDashboardPage(state, handlers) {
         api.get("/api/admin/payments"),
         api.get("/api/admin/requests?limit=100"),
         api.get("/api/admin/master-config"),
+        api.get("/api/admin/media-config").catch(() => ({ media_enabled: true, max_duration_seconds: 1200, max_file_size_mb: 250, default_audio_format: "mp3", default_video_quality: "720p" })),
         api.get("/api/admin/audit-logs"),
         api.get("/api/admin/support-tickets"),
         api.get("/api/admin/email-outbox"),
@@ -783,7 +851,7 @@ export async function renderAdminDashboardPage(state, handlers) {
     else if (activeTab === "payments") tabBody = renderPaymentsTab(paymentsRes, paymentFilter, paymentSearch);
     else if (activeTab === "requests") tabBody = renderRequestsTab(reqsRes, requestStatusFilter, requestSearch);
     else if (activeTab === "telegram") tabBody = renderAdminTelegramTab(tgAdmin);
-    else if (activeTab === "master") tabBody = renderMasterTab(masterCfg, activeBrand);
+    else if (activeTab === "master") tabBody = renderMasterTab(masterCfg, activeBrand, mediaCfg);
     else if (activeTab === "branding") tabBody = renderBrandingTab(brandingCfg);
     else if (activeTab === "governance") tabBody = renderGovernanceTab(supportRes, auditRes, outboxRes);
 
@@ -1055,6 +1123,39 @@ export async function renderAdminDashboardPage(state, handlers) {
       try {
         const res = await api.post("/api/admin/master-config/test", {});
         showToast(res.detail, res.ok ? "success" : "error", 5000);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    });
+
+    document.getElementById("media-config-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("med-save-btn");
+      btn.disabled = true;
+      try {
+        const res = await api.put("/api/admin/media-config", {
+          media_enabled: document.getElementById("med-enabled").checked,
+          max_duration_seconds: Number(document.getElementById("med-max-dur").value || 1200),
+          max_file_size_mb: Number(document.getElementById("med-max-mb").value || 250),
+          default_audio_format: document.getElementById("med-audio-fmt").value,
+          default_video_quality: document.getElementById("med-video-q").value,
+          youtube_api_key: document.getElementById("med-yt-key").value.trim() || null,
+          clear_youtube_api_key: document.getElementById("med-clear-yt-key").checked,
+          youtube_cookies_txt: document.getElementById("med-cookies").value.trim() || null,
+          clear_youtube_cookies: document.getElementById("med-clear-cookies").checked,
+        });
+        showToast(res.message, "success");
+        await renderAdminDashboardPage(state, handlers);
+      } catch (err) {
+        showToast(err.message, "error");
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("adm-test-media")?.addEventListener("click", async () => {
+      try {
+        const res = await api.post("/api/admin/media-config/test", {});
+        showToast(res.detail, res.ok && res.search_ok ? "success" : "warning", 6000);
       } catch (err) {
         showToast(err.message, "error");
       }

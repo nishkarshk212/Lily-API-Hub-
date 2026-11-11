@@ -11,7 +11,14 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import decrypt_secret, encrypt_secret, mask_secret, utc_now
 from app.models.api_key import ApiKey
-from app.models.gateway import ApiRequestLog, AuditLog, EmailOutbox, MasterGatewayConfig, SiteBrandingConfig
+from app.models.gateway import (
+    ApiRequestLog,
+    AuditLog,
+    EmailOutbox,
+    MasterGatewayConfig,
+    MediaGatewayConfig,
+    SiteBrandingConfig,
+)
 from app.models.payment import PaymentOrder, WebhookEvent
 from app.models.plan import Subscription, SubscriptionPlan
 from app.models.user import SupportMessage, User
@@ -20,6 +27,7 @@ from app.schemas.auth import LoginRequest, UserOut
 from app.schemas.domain import (
     AdminBrandingUpdateRequest,
     AdminMasterConfigUpdateRequest,
+    AdminMediaConfigUpdateRequest,
     AdminUserUpdateRequest,
     PlanCreateRequest,
     PlanOut,
@@ -537,6 +545,146 @@ async def test_upstream_connection(admin: User = Depends(require_admin), db: Ses
         }
     except httpx.RequestError as exc:
         return {"ok": False, "detail": f"Connection failed: {type(exc).__name__}"}
+
+
+@router.get("/media-config")
+def get_media_config(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    cfg = get_settings()
+    mgw = db.get(MediaGatewayConfig, 1)
+    if not mgw:
+        return {
+            "media_enabled": cfg.MEDIA_API_ENABLED,
+            "has_youtube_cookies": bool(cfg.YOUTUBE_COOKIES_B64.strip()),
+            "cookies_fingerprint": "env-b64" if cfg.YOUTUBE_COOKIES_B64.strip() else "",
+            "has_youtube_api_key": bool(cfg.YOUTUBE_API_KEY.strip()),
+            "youtube_api_key_fingerprint": mask_secret(cfg.YOUTUBE_API_KEY.strip(), 6, 4) if cfg.YOUTUBE_API_KEY.strip() else "",
+            "max_duration_seconds": cfg.MEDIA_MAX_DURATION_SECONDS,
+            "max_file_size_mb": cfg.MEDIA_MAX_FILE_SIZE_MB,
+            "default_audio_format": "mp3",
+            "default_video_quality": "720p",
+        }
+    return {
+        "media_enabled": mgw.media_enabled,
+        "has_youtube_cookies": bool(mgw.encrypted_youtube_cookies or cfg.YOUTUBE_COOKIES_B64.strip()),
+        "cookies_fingerprint": mgw.cookies_fingerprint,
+        "has_youtube_api_key": bool(mgw.encrypted_youtube_api_key or cfg.YOUTUBE_API_KEY.strip()),
+        "youtube_api_key_fingerprint": mgw.youtube_api_key_fingerprint,
+        "max_duration_seconds": mgw.max_duration_seconds,
+        "max_file_size_mb": mgw.max_file_size_mb,
+        "default_audio_format": mgw.default_audio_format,
+        "default_video_quality": mgw.default_video_quality,
+        "updated_by_email": mgw.updated_by_email,
+        "updated_at": mgw.updated_at,
+    }
+
+
+@router.put("/media-config")
+def update_media_config(
+    payload: AdminMediaConfigUpdateRequest,
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    cfg = get_settings()
+    mgw = db.get(MediaGatewayConfig, 1)
+    if not mgw:
+        mgw = MediaGatewayConfig(id=1)
+        db.add(mgw)
+
+    mgw.media_enabled = payload.media_enabled
+    mgw.max_duration_seconds = payload.max_duration_seconds
+    mgw.max_file_size_mb = payload.max_file_size_mb
+    mgw.default_audio_format = payload.default_audio_format
+    mgw.default_video_quality = payload.default_video_quality
+    mgw.updated_by_email = admin.email
+
+    if payload.clear_youtube_cookies:
+        mgw.encrypted_youtube_cookies = None
+        mgw.cookies_fingerprint = ""
+    elif payload.youtube_cookies_txt is not None and payload.youtube_cookies_txt.strip():
+        raw_cookies = payload.youtube_cookies_txt.strip()
+        mgw.encrypted_youtube_cookies = encrypt_secret(raw_cookies, cfg)
+        lines = [ln for ln in raw_cookies.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+        mgw.cookies_fingerprint = f"{len(lines)} cookies ({len(raw_cookies)} bytes)"
+
+    if payload.clear_youtube_api_key:
+        mgw.encrypted_youtube_api_key = None
+        mgw.youtube_api_key_fingerprint = ""
+    elif payload.youtube_api_key is not None and payload.youtube_api_key.strip():
+        raw_yt = payload.youtube_api_key.strip()
+        mgw.encrypted_youtube_api_key = encrypt_secret(raw_yt, cfg)
+        mgw.youtube_api_key_fingerprint = mask_secret(raw_yt, 6, 4)
+
+    record_audit(
+        db,
+        "admin.media_config_updated",
+        admin.email,
+        admin.id,
+        "media_gateway_config",
+        "1",
+        {
+            "media_enabled": mgw.media_enabled,
+            "has_cookies": bool(mgw.encrypted_youtube_cookies),
+            "has_youtube_api_key": bool(mgw.encrypted_youtube_api_key),
+            "max_duration_seconds": mgw.max_duration_seconds,
+            "max_file_size_mb": mgw.max_file_size_mb,
+        },
+        get_client_ip(request),
+    )
+    db.commit()
+    db.refresh(mgw)
+    return {
+        "message": "Media & YouTube API configuration saved securely.",
+        "has_youtube_cookies": bool(mgw.encrypted_youtube_cookies),
+        "cookies_fingerprint": mgw.cookies_fingerprint,
+        "youtube_api_key_fingerprint": mgw.youtube_api_key_fingerprint,
+    }
+
+
+@router.post("/media-config/test")
+async def test_media_runtime(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    import shutil
+    from app.services.media_service import MediaServiceError, load_media_runtime_config, search_media
+
+    cfg = get_settings()
+    rt = load_media_runtime_config(db, cfg)
+    ffmpeg_path = shutil.which("ffmpeg")
+    yt_dlp_ver = None
+    try:
+        import yt_dlp  # type: ignore
+
+        yt_dlp_ver = getattr(yt_dlp.version, "__version__", "installed")
+    except Exception:
+        pass
+
+    search_ok = False
+    search_detail = ""
+    try:
+        sr = await search_media(
+            db,
+            query="kesariya hindi song",
+            limit=1,
+            api_key_id="admin-probe",
+            public_base_url=cfg.APP_PUBLIC_URL,
+            settings=cfg,
+        )
+        search_ok = sr["count"] > 0
+        first_title = sr["results"][0]["title"] if sr["results"] else "none"
+        search_detail = f"Search ({sr['engine']}) matched: {first_title[:60]}"
+    except MediaServiceError as exc:
+        search_detail = f"{exc.error_code}: {exc.message}"
+    except Exception as exc:
+        search_detail = f"{type(exc).__name__}: {exc}"
+
+    return {
+        "ok": bool(yt_dlp_ver) and rt.media_enabled,
+        "yt_dlp_version": yt_dlp_ver or "missing",
+        "ffmpeg_available": bool(ffmpeg_path),
+        "has_youtube_cookies": bool(rt.youtube_cookies),
+        "has_youtube_api_key": bool(rt.youtube_api_key),
+        "search_ok": search_ok,
+        "detail": f"yt-dlp={yt_dlp_ver or 'missing'}, ffmpeg={'yes' if ffmpeg_path else 'no'} | {search_detail}",
+    }
 
 
 @router.get("/audit-logs")

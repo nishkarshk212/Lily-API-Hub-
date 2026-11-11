@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import encrypt_secret, hash_password, mask_secret
-from app.models.gateway import MasterGatewayConfig
+from app.models.gateway import MasterGatewayConfig, MediaGatewayConfig
 from app.models.plan import SubscriptionPlan
 from app.models.user import User
 
@@ -144,6 +144,23 @@ def seed_initial_data(db: Session) -> None:
             updated_by_email="system-bootstrap",
         )
         db.add(gw)
+
+    # 2b. Seed singleton MediaGatewayConfig if not present
+    mgw = db.get(MediaGatewayConfig, 1)
+    if mgw is None:
+        raw_yt_key = cfg.YOUTUBE_API_KEY.strip()
+        mgw = MediaGatewayConfig(
+            id=1,
+            media_enabled=cfg.MEDIA_API_ENABLED,
+            encrypted_youtube_api_key=encrypt_secret(raw_yt_key, cfg) if raw_yt_key else None,
+            youtube_api_key_fingerprint=mask_secret(raw_yt_key, 6, 4) if raw_yt_key else "",
+            max_duration_seconds=max(60, min(7200, int(cfg.MEDIA_MAX_DURATION_SECONDS or 1200))),
+            max_file_size_mb=max(10, min(2048, int(cfg.MEDIA_MAX_FILE_SIZE_MB or 250))),
+            default_audio_format="mp3",
+            default_video_quality="720p",
+            updated_by_email="system-bootstrap",
+        )
+        db.add(mgw)
 
     # 3. Seed initial admin if no admin user exists yet
     has_admin = db.scalar(select(User.id).where(User.role == "admin").limit(1))

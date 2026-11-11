@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     UPSTREAM_AUTH_SCHEME: str = "Bearer"
     UPSTREAM_TIMEOUT_MS: int = 10000
 
+    # Built-in Media / Audio / Video Extractor Settings
+    MEDIA_API_ENABLED: bool = True
+    MEDIA_MAX_DURATION_SECONDS: int = 1200
+    MEDIA_MAX_FILE_SIZE_MB: int = 250
+    YOUTUBE_API_KEY: str = ""
+    YOUTUBE_COOKIES_B64: str = ""
+
     # Razorpay settings
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""

@@ -193,3 +193,15 @@ class AdminTelegramBroadcastRequest(BaseModel):
     message: str = Field(min_length=2, max_length=3500)
     test_only: bool = False
 
+
+class AdminMediaConfigUpdateRequest(BaseModel):
+    media_enabled: bool = True
+    youtube_cookies_txt: Optional[str] = Field(default=None, max_length=250000)
+    clear_youtube_cookies: bool = False
+    youtube_api_key: Optional[str] = Field(default=None, max_length=512)
+    clear_youtube_api_key: bool = False
+    max_duration_seconds: int = Field(default=1200, ge=60, le=7200)
+    max_file_size_mb: int = Field(default=250, ge=10, le=2048)
+    default_audio_format: str = Field(default="mp3", pattern=r"^(mp3|m4a|opus|webm|original)$")
+    default_video_quality: str = Field(default="720p", pattern=r"^(best|1080p|720p|480p|360p|240p)$")
+

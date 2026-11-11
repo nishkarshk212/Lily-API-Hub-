@@ -1,7 +1,14 @@
 """Export all SQLAlchemy models for metadata creation."""
 
 from app.models.api_key import ApiKey
-from app.models.gateway import ApiRequestLog, AuditLog, EmailOutbox, MasterGatewayConfig, SiteBrandingConfig
+from app.models.gateway import (
+    ApiRequestLog,
+    AuditLog,
+    EmailOutbox,
+    MasterGatewayConfig,
+    MediaGatewayConfig,
+    SiteBrandingConfig,
+)
 from app.models.payment import PaymentOrder, WebhookEvent
 from app.models.plan import Subscription, SubscriptionPlan
 from app.models.telegram import TelegramBot, TelegramBotEvent, TelegramUserLink
@@ -19,6 +26,7 @@ __all__ = [
     "WebhookEvent",
     "ApiRequestLog",
     "MasterGatewayConfig",
+    "MediaGatewayConfig",
     "SiteBrandingConfig",
     "AuditLog",
     "EmailOutbox",

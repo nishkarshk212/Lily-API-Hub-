@@ -12,6 +12,7 @@ dependencies = [
     "pydantic-settings>=2.6.0",
     "email-validator>=2.2.0",
     "httpx>=0.28.0",
+    "yt-dlp[default]>=2025.10.22",
     "pyjwt>=2.10.0",
     "cryptography>=44.0.0",
     "bcrypt>=4.2.0",
