@@ -35,6 +35,11 @@ def test_gateway_key_management_and_builtin_endpoints(client):
     # Invalid key -> 401
     assert client.get("/v1/status", headers={"X-API-Key": "beta_live_invalid_key"}).status_code == 401
 
+    # Root /v1 without trailing slash responds directly without 307 redirect
+    root_v1 = client.get("/v1", headers={"X-API-Key": raw_key}, follow_redirects=False)
+    assert root_v1.status_code == 200
+    assert root_v1.json()["status"] == "operational"
+
     # Valid key -> 200 + quota headers + master link tag (NEVER exposing raw MASTER_API_KEY)
     resp = client.get("/v1/status", headers={"X-API-Key": raw_key})
     assert resp.status_code == 200

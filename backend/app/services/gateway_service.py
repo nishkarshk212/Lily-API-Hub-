@@ -63,11 +63,11 @@ def extract_api_key_from_headers(headers: Dict[str, str], db: Optional[Session] 
     x_api_key = lowered.get("x-api-key")
     if x_api_key and x_api_key.strip():
         return x_api_key.strip()
-    auth = lowered.get("authorization", "")
-    if auth.lower().startswith("bearer "):
-        candidate = auth[7:].strip()
+    auth = lowered.get("authorization", "").strip()
+    if auth:
+        candidate = auth[7:].strip() if auth.lower().startswith("bearer ") else auth
         brand = get_effective_branding(db)
-        if candidate.startswith((brand["api_key_prefix_live"], brand["api_key_prefix_test"], "beta_")) or "_" in candidate:
+        if candidate.startswith((brand["api_key_prefix_live"], brand["api_key_prefix_test"], "beta_", "lily_")) or "_" in candidate:
             return candidate
     return None
 
@@ -664,6 +664,44 @@ async def execute_gateway_core(
 
     upstream_base = (gw.upstream_base_url if gw else "").strip().rstrip("/")
     if not upstream_base or gw_mode == "builtin":
+        if not subpath.strip("/"):
+            b = get_effective_branding(db)
+            latency = (time.perf_counter() - started) * 1000
+            _log_gateway_request(
+                db,
+                user_id=user.id,
+                api_key_id=api_key.id,
+                subscription_id=sub.id,
+                method=upper_method,
+                path="/v1",
+                query_string=query_str,
+                status_code=200,
+                upstream_status_code=None,
+                latency_ms=latency,
+                client_ip=client_ip,
+                gateway_mode="builtin",
+            )
+            common_headers["X-Gateway-Mode"] = "builtin"
+            return _json_gateway_result(
+                200,
+                {
+                    "service": f"{b['app_name']} Gateway",
+                    "provider": b["company_name"],
+                    "status": "operational",
+                    "plan": plan.slug,
+                    "builtin_endpoints": [
+                        "/v1/status",
+                        "/v1/network/echo",
+                        "/v1/network/dns",
+                        "/v1/crypto/hash",
+                        "/v1/crypto/uuid",
+                        "/v1/geo/ip-parse",
+                        "/v1/utils/timestamp",
+                        "/v1/utils/json-validate",
+                    ],
+                },
+                headers=common_headers,
+            )
         latency = (time.perf_counter() - started) * 1000
         _log_gateway_request(
             db,
