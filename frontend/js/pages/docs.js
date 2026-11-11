@@ -53,6 +53,7 @@ export function renderDocsPage(state, handlers) {
         <button class="docs-nav-item active" data-doc-jump="doc-auth">Authentication</button>
         <button class="docs-nav-item" data-doc-jump="doc-headers">Rate Limit & Quota Headers</button>
         <button class="docs-nav-item" data-doc-jump="doc-endpoints">Endpoints Reference</button>
+        <button class="docs-nav-item" data-doc-jump="doc-telegram">Telegram Bot Features</button>
         <button class="docs-nav-item" data-doc-jump="doc-errors">Error Codes</button>
         <button class="docs-nav-item" data-doc-jump="doc-guides">Integration Guide</button>
         <hr style="border:none;border-top:1px solid var(--border-subtle);margin:14px 0;" />
@@ -138,6 +139,30 @@ Authorization: Bearer ${esc(sampleDocsKey)}</pre>
             .join("")}
         </section>
 
+        <section id="doc-telegram" class="glass-card panel-card">
+          <div class="panel-head">
+            <div>
+              <h2>Telegram Bot Connection &amp; Commands</h2>
+              <p style="margin:4px 0 0;color:var(--text-muted);font-size:13.5px;">Connect your <code>@BotFather</code> bot in Dashboard → Telegram Bot to manage API keys, quotas &amp; live <code>/v1/*</code> calls directly from Telegram.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" id="docs-goto-telegram">Connect Telegram Bot ✈</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Command</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">/start &amp; /menu</td><td>Open interactive inline button menu or complete 1-click pairing / account linking</td></tr>
+                <tr><td class="mono">/quota &amp; /keys</td><td>Inspect daily/cycle progress bars and create, reveal, rotate or revoke API keys</td></tr>
+                <tr><td class="mono">/status, /time, /uuid</td><td>Run built-in gateway health check, UTC clock sync, and UUIDv4 generator</td></tr>
+                <tr><td class="mono">/hash, /ip, /dns, /json</td><td>Compute digests, inspect IPs, resolve DNS records, and validate JSON payloads</td></tr>
+                <tr><td class="mono">/call &lt;METHOD&gt; &lt;/v1/path&gt;</td><td>Invoke any gateway or upstream Master API endpoint directly using your key</td></tr>
+                <tr><td class="mono">/ask &lt;prompt&gt;</td><td>Route queries or plain text messages to your configured custom upstream route</td></tr>
+                <tr><td class="mono">/alerts &amp; /logs</td><td>Configure real-time quota (80%/100%), key security, billing &amp; 5xx alerts</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section id="doc-errors" class="glass-card panel-card">
           <h2 style="margin:0 0 12px;">Error Codes Reference</h2>
           <div class="table-wrap">
@@ -174,6 +199,7 @@ Authorization: Bearer ${esc(sampleDocsKey)}</pre>
 
   document.getElementById("docs-copy-base")?.addEventListener("click", () => copyToClipboard(baseUrl, "Base URL copied!"));
   document.getElementById("docs-goto-playground")?.addEventListener("click", () => handlers.navigate("#playground"));
+  document.getElementById("docs-goto-telegram")?.addEventListener("click", () => handlers.navigate("#dashboard?tab=telegram"));
 
   root.querySelectorAll("[data-doc-jump]").forEach((btn) => {
     btn.addEventListener("click", () => {

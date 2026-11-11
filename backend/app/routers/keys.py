@@ -1,5 +1,7 @@
 """API key vault routes: list, create, reveal, regenerate, revoke."""
 
+import html
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
@@ -16,8 +18,24 @@ from app.services.key_service import (
     revoke_user_key,
     serialize_api_key,
 )
+from app.services.telegram_service import notify_user_telegram
 
 router = APIRouter(prefix="/api/keys", tags=["API Keys"])
+
+
+async def _notify_key_event(db: Session, user_id: str, title: str, key_name: str, key_last4: str) -> None:
+    try:
+        await notify_user_telegram(
+            db,
+            user_id,
+            category="security",
+            title=title,
+            message_lines=[
+                f"Key: <b>{html.escape(key_name)}</b> (<code>••••{html.escape(key_last4)}</code>)",
+            ],
+        )
+    except Exception:
+        pass
 
 
 @router.get("")
@@ -27,7 +45,7 @@ def get_my_keys(user: User = Depends(get_current_user), db: Session = Depends(ge
 
 
 @router.post("")
-def create_new_key(
+async def create_new_key(
     payload: ApiKeyCreateRequest,
     request: Request,
     user: User = Depends(get_current_user),
@@ -45,6 +63,7 @@ def create_new_key(
         get_client_ip(request),
     )
     db.commit()
+    await _notify_key_event(db, user.id, "🔑 New API Key Created", key.name, key.key_last4)
     return {"key": serialize_api_key(key), "message": "New API key created."}
 
 
@@ -62,7 +81,7 @@ def reveal_key(
 
 
 @router.post("/{key_id}/regenerate")
-def regenerate_key(
+async def regenerate_key(
     key_id: str,
     request: Request,
     user: User = Depends(get_current_user),
@@ -80,11 +99,12 @@ def regenerate_key(
         get_client_ip(request),
     )
     db.commit()
+    await _notify_key_event(db, user.id, "🔄 API Key Regenerated", key.name, key.key_last4)
     return {"key": serialize_api_key(key), "api_key": new_raw, "message": "API key regenerated successfully."}
 
 
 @router.post("/{key_id}/revoke")
-def revoke_key(
+async def revoke_key(
     key_id: str,
     request: Request,
     user: User = Depends(get_current_user),
@@ -93,5 +113,6 @@ def revoke_key(
     key = revoke_user_key(db, user, key_id)
     record_audit(db, "api_key.revoked", user.email, user.id, "api_key", key.id, {}, get_client_ip(request))
     db.commit()
+    await _notify_key_event(db, user.id, "🛑 API Key Revoked", key.name, key.key_last4)
     return {"key": serialize_api_key(key), "message": "API key revoked."}
 

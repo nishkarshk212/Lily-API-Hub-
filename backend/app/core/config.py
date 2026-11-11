@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     INITIAL_ADMIN_PASSWORD: str = "SonicAdmin!2026ChangeMe"
     INITIAL_ADMIN_NAME: str = "Sonic Network Admin"
 
+    # Telegram Bot Integration
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_API_BASE_URL: str = "https://api.telegram.org"
+    TELEGRAM_WEBHOOK_ENABLED: bool = True
+    TELEGRAM_POLLING_ENABLED: bool = True
+
     COOKIE_SECURE: bool = False
     CORS_ORIGINS: str = "http://localhost:8000,http://127.0.0.1:8000"
 

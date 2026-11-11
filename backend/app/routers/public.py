@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.gateway import MasterGatewayConfig
 from app.models.plan import SubscriptionPlan
+from app.models.telegram import TelegramBot
 from app.models.user import SupportMessage, User
 from app.routers.deps import get_optional_user
 from app.schemas.auth import SupportTicketRequest
@@ -130,6 +131,9 @@ def get_public_overview(request: Request, db: Session = Depends(get_db)):
     cfg = get_settings()
     brand = get_effective_branding(db, cfg)
     gw = db.get(MasterGatewayConfig, 1)
+    pbot = db.scalar(
+        select(TelegramBot).where(TelegramBot.is_platform_bot.is_(True), TelegramBot.is_active.is_(True)).limit(1)
+    )
     active_plans_count = db.scalar(select(func.count(SubscriptionPlan.id)).where(SubscriptionPlan.is_active.is_(True))) or 0
     base_url = cfg.resolve_api_base_url(request)
     faqs = [
@@ -169,6 +173,8 @@ def get_public_overview(request: Request, db: Session = Depends(get_db)):
         "google_oauth_enabled": cfg.google_oauth_configured,
         "razorpay_enabled": cfg.razorpay_configured,
         "smtp_enabled": bool(cfg.SMTP_HOST.strip()),
+        "telegram_platform_bot_enabled": bool(pbot),
+        "telegram_platform_bot_username": pbot.bot_username if pbot else "",
         "active_plans_count": active_plans_count,
         "endpoints": endpoints,
         "faqs": faqs,

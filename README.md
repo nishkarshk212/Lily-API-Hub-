@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy" />
   <img src="https://img.shields.io/badge/Razorpay-HMAC--SHA256-072654?style=for-the-badge&logo=razorpay&logoColor=3395FF" alt="Razorpay" />
   <img src="https://img.shields.io/badge/OAuth%202.0-Google-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google OAuth" />
-  <img src="https://img.shields.io/badge/Pytest-14%2F14%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 14/14 Passing" />
+  <img src="https://img.shields.io/badge/Pytest-16%2F16%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 16/16 Passing" />
 </p>
 
 <!-- Interactive Quick Navigation Bar -->
@@ -76,8 +76,9 @@
     <td width="50%" valign="top">
       <h3>🎨 White-Label &amp; Colorful Admin UI</h3>
       <ul>
-        <li>Full 9-tab <strong>Admin Command Center</strong> (<code>#admin</code>) with color-coded KPIs &amp; controls.</li>
+        <li>Full 10-tab <strong>Admin Command Center</strong> (<code>#admin</code>) with color-coded KPIs &amp; Telegram Bot Console.</li>
         <li>Manage users, promote/demote roles, revoke keys, edit plan pricing &amp; quotas live.</li>
+        <li>Connect <strong>@BotFather Telegram Bots</strong> straight from Dashboard &amp; Admin Panel (Webhooks + Polling).</li>
         <li>Live <strong>Site &amp; API Branding Editor</strong> with real-time preview &amp; one-click <code>.env</code> reset.</li>
         <li>Custom <code>APP_NAME</code>, <code>COMPANY_NAME</code>, key prefixes, receipt codes &amp; dynamic SVG favicon.</li>
       </ul>
@@ -283,7 +284,7 @@ Production blueprints are included out of the box—see [**`DEPLOYMENT_GUIDE.md`
 ## 🧪 Testing & Repository Layout
 
 <details>
-<summary><b>🧪 Click to view Test Coverage (14/14 Passing) &amp; Two-Part Project Structure</b></summary>
+<summary><b>🧪 Click to view Test Coverage (16/16 Passing) &amp; Two-Part Project Structure</b></summary>
 
 Run the full automated suite from `backend/`:
 ```bash
@@ -298,6 +299,7 @@ pytest -v
 | [`backend/tests/test_gateway_quotas.py`](./backend/tests/test_gateway_quotas.py) | Key reveal/rotate/revoke, max-key caps, built-in endpoints, rate limits, expiry & Master proxy injection |
 | [`backend/tests/test_razorpay.py`](./backend/tests/test_razorpay.py) | Razorpay order creation, HMAC verification, webhook idempotency, cancellation & reconciliation |
 | [`backend/tests/test_admin.py`](./backend/tests/test_admin.py) | Admin RBAC isolation, user suspension, plan CRUD, Vercel fallback, cross-origin Bearer auth & live branding |
+| [`backend/tests/test_telegram.py`](./backend/tests/test_telegram.py) | @BotFather bot onboarding, HTTPS webhook verification, owner pairing, inline commands, polling, broadcasts & quota/security alerts |
 
 ```text
 .
@@ -307,16 +309,17 @@ pytest -v
 │   ├── build-config.sh              # Env var -> config.js script for static hosts
 │   ├── vercel.json · _redirects · _headers
 │   ├── css/                         # tokens.css, base.css, landing.css, dashboard.css, admin.css
-│   └── js/                          # api.js (Bearer + Cookie), app router, charts, modals & 5 pages
-├── backend/                         # Part 2 — FastAPI API, Gateway, Razorpay & DB (Render / Railway / Docker)
+│   └── js/                          # api.js (Bearer + Cookie), app router, charts, modals, telegramPanel & 5 pages
+├── backend/                         # Part 2 — FastAPI API, Gateway, Razorpay, Telegram Bot & DB
 │   ├── app/
-│   │   ├── main.py                  # FastAPI app, dynamic SVG favicon, CORS & optional local SPA serve
+│   │   ├── main.py                  # FastAPI app, dynamic SVG favicon, CORS & Telegram polling lifecycle
 │   │   ├── core/                    # Config (.env), SQLAlchemy engine, Fernet security, email & seed
-│   │   ├── models/                  # User, SubscriptionPlan, ApiKey, Payment, MasterGatewayConfig, SiteBrandingConfig
-│   │   ├── routers/                 # Auth, Public, Plans, Keys, Payments, Playground, Admin, Gateway (/v1)
+│   │   ├── models/                  # User, Plan, ApiKey, Payment, MasterGateway, SiteBranding, TelegramBot
+│   │   ├── routers/                 # Auth, Public, Plans, Keys, Payments, Playground, Telegram, Admin, Gateway (/v1)
 │   │   ├── schemas/                 # Pydantic v2 validation schemas
-│   │   └── services/                # Auth, Branding, Key minting, Gateway proxy & Razorpay
-│   ├── tests/                       # 14 end-to-end automated integration tests
+│   │   └── services/                # Auth, Branding, Key minting, Gateway proxy, Razorpay & Telegram engine
+│   ├── telegram_bot_worker.py       # Optional standalone long-polling CLI worker
+│   ├── tests/                       # 16 end-to-end automated integration tests
 │   ├── Dockerfile · .dockerignore · railway.toml
 │   └── requirements.txt · pyproject.toml · .env.example
 ├── docs/assets/                     # Custom animated SVG banners & architecture visuals

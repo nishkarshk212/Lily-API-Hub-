@@ -138,3 +138,58 @@ class AdminBrandingUpdateRequest(BaseModel):
     api_key_prefix_test: str = Field(default="beta_test_", min_length=2, max_length=24, pattern=r"^[a-zA-Z0-9_-]+$")
     receipt_prefix: str = Field(default="BETA", min_length=2, max_length=16, pattern=r"^[a-zA-Z0-9_-]+$")
 
+
+class TelegramBotConnectRequest(BaseModel):
+    bot_token: str = Field(min_length=20, max_length=200)
+    bot_name: Optional[str] = Field(default=None, max_length=120)
+    api_key_id: Optional[str] = None
+    access_mode: str = Field(default="owner_only", pattern=r"^(owner_only|public_gateway)$")
+    connection_mode: Optional[str] = Field(default=None, pattern=r"^(webhook|polling)$")
+    welcome_message: str = Field(default="", max_length=2000)
+    custom_proxy_path: str = Field(default="", max_length=200)
+    custom_proxy_method: str = Field(default="POST", pattern=r"^(GET|POST)$")
+    forward_plain_text: bool = False
+    notify_owner_alerts: bool = True
+
+
+class TelegramBotUpdateRequest(BaseModel):
+    bot_token: Optional[str] = Field(default=None, min_length=20, max_length=200)
+    bot_name: Optional[str] = Field(default=None, max_length=120)
+    api_key_id: Optional[str] = None
+    access_mode: Optional[str] = Field(default=None, pattern=r"^(owner_only|public_gateway)$")
+    connection_mode: Optional[str] = Field(default=None, pattern=r"^(webhook|polling)$")
+    is_active: Optional[bool] = None
+    welcome_message: Optional[str] = Field(default=None, max_length=2000)
+    custom_proxy_path: Optional[str] = Field(default=None, max_length=200)
+    custom_proxy_method: Optional[str] = Field(default=None, pattern=r"^(GET|POST)$")
+    forward_plain_text: Optional[bool] = None
+    notify_owner_alerts: Optional[bool] = None
+
+
+class TelegramUserPreferencesRequest(BaseModel):
+    notify_quota_alerts: Optional[bool] = None
+    notify_security_alerts: Optional[bool] = None
+    notify_payment_alerts: Optional[bool] = None
+    notify_gateway_errors: Optional[bool] = None
+
+
+class TelegramSimulateRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    as_owner: bool = True
+
+
+class AdminPlatformTelegramRequest(BaseModel):
+    bot_token: Optional[str] = Field(default=None, min_length=20, max_length=200)
+    bot_name: Optional[str] = Field(default=None, max_length=120)
+    connection_mode: Optional[str] = Field(default=None, pattern=r"^(webhook|polling)$")
+    is_active: bool = True
+    welcome_message: str = Field(default="", max_length=2000)
+    custom_proxy_path: str = Field(default="", max_length=200)
+    custom_proxy_method: str = Field(default="POST", pattern=r"^(GET|POST)$")
+    forward_plain_text: bool = False
+
+
+class AdminTelegramBroadcastRequest(BaseModel):
+    message: str = Field(min_length=2, max_length=3500)
+    test_only: bool = False
+

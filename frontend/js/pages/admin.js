@@ -5,6 +5,7 @@
 import { api, esc, formatDate, formatInr, formatNum, getBrand, openAuthenticatedUrl, setAuthToken, showToast, statusBadge } from "../api.js";
 import { bindChartTooltips, renderTrafficChart } from "../components/charts.js";
 import { openConfirmModal, openPlanEditorModal } from "../components/modals.js";
+import { bindAdminTelegramEvents, renderAdminTelegramTab } from "../components/telegramPanel.js";
 
 const SIDEBAR_TABS = [
   { id: "analytics", label: "Platform Analytics", icon: "◈", accent: "#4f46e5", accentEnd: "#7c3aed", bg: "rgba(79,70,229,0.1)" },
@@ -13,6 +14,7 @@ const SIDEBAR_TABS = [
   { id: "plans", label: "Plans & Pricing", icon: "◆", accent: "#7c3aed", accentEnd: "#a855f7", bg: "rgba(124,58,237,0.11)" },
   { id: "payments", label: "Payments & Webhooks", icon: "₹", accent: "#0891b2", accentEnd: "#06b6d4", bg: "rgba(8,145,178,0.11)" },
   { id: "requests", label: "Request Monitor", icon: "▤", accent: "#e11d48", accentEnd: "#f43f5e", bg: "rgba(225,29,72,0.1)" },
+  { id: "telegram", label: "Telegram Bot", icon: "✈", accent: "#0284c7", accentEnd: "#0ea5e9", bg: "rgba(2,132,199,0.11)" },
   { id: "master", label: "Master API Config", icon: "⚡", accent: "#2563eb", accentEnd: "#0284c7", bg: "rgba(37,99,235,0.1)" },
   { id: "branding", label: "Site & API Branding", icon: "✦", accent: "#c026d3", accentEnd: "#ec4899", bg: "rgba(192,38,211,0.1)" },
   { id: "governance", label: "Support, Audit & Outbox", icon: "🛡", accent: "#0d9488", accentEnd: "#14b8a6", bg: "rgba(13,148,136,0.1)" },
@@ -732,9 +734,9 @@ export async function renderAdminDashboardPage(state, handlers) {
   const brand = getBrand(state);
   root.innerHTML = `<div class="loading-screen"><div class="spinner-lg"></div><p>Loading ${esc(brand.companyName)} Admin Command Center...</p></div>`;
 
-  let analytics, usersRes, keysRes, plansRes, paymentsRes, reqsRes, masterCfg, auditRes, supportRes, outboxRes, brandingCfg;
+  let analytics, usersRes, keysRes, plansRes, paymentsRes, reqsRes, masterCfg, auditRes, supportRes, outboxRes, brandingCfg, tgAdmin;
   try {
-    [analytics, usersRes, keysRes, plansRes, paymentsRes, reqsRes, masterCfg, auditRes, supportRes, outboxRes, brandingCfg] =
+    [analytics, usersRes, keysRes, plansRes, paymentsRes, reqsRes, masterCfg, auditRes, supportRes, outboxRes, brandingCfg, tgAdmin] =
       await Promise.all([
         api.get("/api/admin/analytics"),
         api.get("/api/admin/users"),
@@ -747,6 +749,7 @@ export async function renderAdminDashboardPage(state, handlers) {
         api.get("/api/admin/support-tickets"),
         api.get("/api/admin/email-outbox"),
         api.get("/api/admin/branding"),
+        api.get("/api/admin/telegram").catch(() => ({ platform_bot: null, linked_users: [], events: [], custom_bots_count: 0 })),
       ]);
   } catch (err) {
     root.innerHTML = `<div class="container" style="padding:60px 24px;"><div class="glass-card panel-card"><h2>Admin Access Error</h2><p>${esc(err.message)}</p><button class="btn btn-primary" id="adm-reauth">Admin Sign In</button></div></div>`;
@@ -767,6 +770,7 @@ export async function renderAdminDashboardPage(state, handlers) {
     keys: keysRes.keys.length,
     plans: plansRes.length,
     requests: (reqsRes.requests || []).length,
+    telegram: (tgAdmin?.linked_users || []).length + (tgAdmin?.custom_bots_count || 0),
   };
 
   const draw = () => {
@@ -778,6 +782,7 @@ export async function renderAdminDashboardPage(state, handlers) {
     else if (activeTab === "plans") tabBody = renderPlansTab(plansRes || []);
     else if (activeTab === "payments") tabBody = renderPaymentsTab(paymentsRes, paymentFilter, paymentSearch);
     else if (activeTab === "requests") tabBody = renderRequestsTab(reqsRes, requestStatusFilter, requestSearch);
+    else if (activeTab === "telegram") tabBody = renderAdminTelegramTab(tgAdmin);
     else if (activeTab === "master") tabBody = renderMasterTab(masterCfg, activeBrand);
     else if (activeTab === "branding") tabBody = renderBrandingTab(brandingCfg);
     else if (activeTab === "governance") tabBody = renderGovernanceTab(supportRes, auditRes, outboxRes);
@@ -834,6 +839,16 @@ export async function renderAdminDashboardPage(state, handlers) {
       });
     });
     bindChartTooltips(root);
+
+    if (activeTab === "telegram") {
+      bindAdminTelegramEvents({
+        reloadAdmin: async () => {
+          tgAdmin = await api.get("/api/admin/telegram");
+          tabCounts.telegram = (tgAdmin?.linked_users || []).length + (tgAdmin?.custom_bots_count || 0);
+          draw();
+        },
+      });
+    }
 
     document.getElementById("adm-hero-refresh")?.addEventListener("click", () => renderAdminDashboardPage(state, handlers));
     document.getElementById("adm-refresh-all")?.addEventListener("click", () => renderAdminDashboardPage(state, handlers));

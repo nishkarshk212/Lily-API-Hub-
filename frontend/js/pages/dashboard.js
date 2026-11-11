@@ -23,6 +23,7 @@ import {
 } from "../api.js";
 import { bindChartTooltips, renderTrafficChart } from "../components/charts.js";
 import { openConfirmModal, openCreateKeyModal } from "../components/modals.js";
+import { bindUserTelegramEvents, renderUserTelegramTab } from "../components/telegramPanel.js";
 
 function animateCounters(root) {
   root.querySelectorAll("[data-count-to]").forEach((el) => {
@@ -49,15 +50,16 @@ export async function renderDashboardPage(state, handlers) {
 
   root.innerHTML = `<div class="loading-screen"><div class="spinner-lg"></div><p>Loading your Developer Dashboard...</p></div>`;
 
-  let subRes, keysRes, usageRes, paymentsRes, sessionsRes, plansList;
+  let subRes, keysRes, usageRes, paymentsRes, sessionsRes, plansList, tgStatus;
   const loadDashboardData = async () => {
-    [subRes, keysRes, usageRes, paymentsRes, sessionsRes, plansList] = await Promise.all([
+    [subRes, keysRes, usageRes, paymentsRes, sessionsRes, plansList, tgStatus] = await Promise.all([
       api.get("/api/subscriptions/current"),
       api.get("/api/keys"),
       api.get("/api/dashboard/usage?limit=50"),
       api.get("/api/payments/history"),
       api.get("/api/auth/sessions"),
       api.get("/api/plans"),
+      api.get("/api/telegram/status").catch(() => ({ platform_bot: { configured: false }, bots: [] })),
     ]);
     state.subscription = subRes.subscription;
     state.keys = keysRes.keys || [];
@@ -82,6 +84,7 @@ export async function renderDashboardPage(state, handlers) {
   let quickPingEndpoint = "/v1/status";
   let quickPingResult = null;
   let animateOverviewOnce = true;
+  let editingTgBotId = "";
 
   const draw = () => {
     const sub = state.subscription;
@@ -108,6 +111,7 @@ export async function renderDashboardPage(state, handlers) {
       { id: "overview", label: "Overview & Usage", icon: "◈" },
       { id: "plans", label: `Plans & Pricing (${plans.length})`, icon: "✦" },
       { id: "keys", label: `API Keys (${activeKeysCount})`, icon: "⚿" },
+      { id: "telegram", label: `Telegram Bot (${(tgStatus?.bots || []).length})`, icon: "✈" },
       { id: "billing", label: "Billing & Receipts", icon: "◆" },
       { id: "logs", label: "Request History", icon: "▤" },
       { id: "profile", label: "Profile & Security", icon: "⚙" },
@@ -188,6 +192,7 @@ export async function renderDashboardPage(state, handlers) {
               ⚡ Generate API Key
             </button>
             <button class="btn btn-secondary btn-sm" id="dash-open-playground">Open Playground</button>
+            <button class="btn btn-secondary btn-sm" id="dash-goto-telegram">✈ Telegram Bot</button>
           </div>
         </div>
 
@@ -632,6 +637,8 @@ export async function renderDashboardPage(state, handlers) {
           </div>
         </div>
       `;
+    } else if (activeTab === "telegram") {
+      tabBody = renderUserTelegramTab({ tgStatus, keys, editingBotId: editingTgBotId });
     } else if (activeTab === "profile") {
       const sessions = sessionsRes.sessions || [];
       tabBody = `
@@ -714,6 +721,21 @@ export async function renderDashboardPage(state, handlers) {
     animateCounters(root);
     bindChartTooltips(root);
 
+    if (activeTab === "telegram") {
+      bindUserTelegramEvents(root, {
+        tgStatus,
+        bots: tgStatus?.bots || [],
+        reloadTelegramTab: async () => {
+          tgStatus = await api.get("/api/telegram/status").catch(() => tgStatus);
+          draw();
+        },
+        setEditingBotId: (id) => {
+          editingTgBotId = editingTgBotId === id ? "" : id;
+          draw();
+        },
+      });
+    }
+
     root.querySelectorAll("[data-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
         activeTab = btn.getAttribute("data-tab");
@@ -741,6 +763,11 @@ export async function renderDashboardPage(state, handlers) {
       setTimeout(() => (btn.textContent = "Copy URL"), 1800);
     });
     document.getElementById("dash-open-playground")?.addEventListener("click", () => handlers.navigate("#playground"));
+    document.getElementById("dash-goto-telegram")?.addEventListener("click", () => {
+      activeTab = "telegram";
+      state.dashboardTab = "telegram";
+      draw();
+    });
     document.getElementById("dash-goto-keys")?.addEventListener("click", () => {
       activeTab = "keys";
       state.dashboardTab = "keys";

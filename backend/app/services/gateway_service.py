@@ -58,17 +58,22 @@ class SlidingWindowRateLimiter:
 rate_limiter = SlidingWindowRateLimiter()
 
 
-def extract_api_key(request: Request, db: Optional[Session] = None) -> Optional[str]:
-    x_api_key = request.headers.get("x-api-key")
+def extract_api_key_from_headers(headers: Dict[str, str], db: Optional[Session] = None) -> Optional[str]:
+    lowered = {k.lower(): v for k, v in headers.items()}
+    x_api_key = lowered.get("x-api-key")
     if x_api_key and x_api_key.strip():
         return x_api_key.strip()
-    auth = request.headers.get("authorization", "")
+    auth = lowered.get("authorization", "")
     if auth.lower().startswith("bearer "):
         candidate = auth[7:].strip()
         brand = get_effective_branding(db)
         if candidate.startswith((brand["api_key_prefix_live"], brand["api_key_prefix_test"], "beta_")) or "_" in candidate:
             return candidate
     return None
+
+
+def extract_api_key(request: Request, db: Optional[Session] = None) -> Optional[str]:
+    return extract_api_key_from_headers(dict(request.headers), db)
 
 
 def _is_endpoint_allowed(pattern_spec: str, path: str) -> bool:
@@ -296,16 +301,70 @@ def _execute_builtin_endpoint(
     return None
 
 
-async def handle_gateway_request(request: Request, subpath: str, db: Session) -> Response:
+def _json_gateway_result(
+    status_code: int,
+    payload: Dict[str, Any],
+    headers: Optional[Dict[str, str]] = None,
+) -> Tuple[int, Dict[str, str], bytes, str]:
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    return status_code, dict(headers or {}), body, "application/json"
+
+
+async def _best_effort_gateway_alert(
+    db: Session,
+    *,
+    user_id: str,
+    full_path: str,
+    status_code: int,
+    error_code: Optional[str],
+    plan_name: str,
+    daily_limit: int,
+    daily_rem: int,
+    monthly_limit: int,
+    monthly_rem: int,
+) -> None:
+    try:
+        from app.services.telegram_service import notify_gateway_alerts
+
+        await notify_gateway_alerts(
+            db,
+            user_id=user_id,
+            full_path=full_path,
+            status_code=status_code,
+            error_code=error_code,
+            plan_name=plan_name,
+            daily_limit=daily_limit,
+            daily_rem=daily_rem,
+            monthly_limit=monthly_limit,
+            monthly_rem=monthly_rem,
+        )
+    except Exception:
+        pass
+
+
+async def execute_gateway_core(
+    db: Session,
+    *,
+    method: str,
+    subpath: str,
+    query_dict: Optional[Dict[str, str]] = None,
+    query_str: str = "",
+    body_bytes: bytes = b"",
+    req_headers: Optional[Dict[str, str]] = None,
+    client_ip: str = "127.0.0.1",
+    raw_api_key: Optional[str] = None,
+) -> Tuple[int, Dict[str, str], bytes, str]:
+    """Core gateway pipeline reusable by HTTP /v1/* routes and internal Telegram Bot runners."""
     started = time.perf_counter()
-    client_ip = get_client_ip(request)
+    upper_method = method.upper()
     full_path = f"/v1/{subpath.lstrip('/')}"
-    query_str = request.url.query or ""
+    query_map = dict(query_dict or {})
+    headers_map = dict(req_headers or {})
 
     gw = db.get(MasterGatewayConfig, 1)
     gw_mode = gw.gateway_mode if gw else "hybrid"
 
-    raw_key = extract_api_key(request, db)
+    raw_key = raw_api_key or extract_api_key_from_headers(headers_map, db)
     if not raw_key:
         latency = (time.perf_counter() - started) * 1000
         _log_gateway_request(
@@ -313,7 +372,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=None,
             api_key_id=None,
             subscription_id=None,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=401,
@@ -323,9 +382,9 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code="MISSING_API_KEY",
         )
-        return JSONResponse(
-            status_code=401,
-            content={"error": "MISSING_API_KEY", "message": "Provide X-API-Key or Authorization: Bearer <api_key>."},
+        return _json_gateway_result(
+            401,
+            {"error": "MISSING_API_KEY", "message": "Provide X-API-Key or Authorization: Bearer <api_key>."},
         )
 
     api_key = db.query(ApiKey).filter(ApiKey.key_hash == sha256_hex(raw_key)).first()
@@ -336,7 +395,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=None,
             api_key_id=None,
             subscription_id=None,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=401,
@@ -346,7 +405,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code="INVALID_API_KEY",
         )
-        return JSONResponse(status_code=401, content={"error": "INVALID_API_KEY", "message": "API key is invalid."})
+        return _json_gateway_result(401, {"error": "INVALID_API_KEY", "message": "API key is invalid."})
 
     if api_key.status != "active":
         latency = (time.perf_counter() - started) * 1000
@@ -355,7 +414,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=api_key.user_id,
             api_key_id=api_key.id,
             subscription_id=api_key.subscription_id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=403,
@@ -365,7 +424,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code="KEY_REVOKED",
         )
-        return JSONResponse(status_code=403, content={"error": "KEY_REVOKED", "message": "This API key has been revoked."})
+        return _json_gateway_result(403, {"error": "KEY_REVOKED", "message": "This API key has been revoked."})
 
     user = db.get(User, api_key.user_id)
     if not user or not user.is_active or user.is_suspended:
@@ -375,7 +434,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=api_key.user_id,
             api_key_id=api_key.id,
             subscription_id=api_key.subscription_id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=403,
@@ -385,16 +444,16 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code="ACCOUNT_SUSPENDED",
         )
-        return JSONResponse(
-            status_code=403,
-            content={"error": "ACCOUNT_SUSPENDED", "message": "Account is suspended or inactive."},
+        return _json_gateway_result(
+            403,
+            {"error": "ACCOUNT_SUSPENDED", "message": "Account is suspended or inactive."},
         )
 
     sub = db.get(Subscription, api_key.subscription_id)
     plan = db.get(SubscriptionPlan, sub.plan_id) if sub else None
     now = utc_now()
     if not sub or not plan:
-        return JSONResponse(status_code=403, content={"error": "NO_SUBSCRIPTION", "message": "Subscription missing."})
+        return _json_gateway_result(403, {"error": "NO_SUBSCRIPTION", "message": "Subscription missing."})
 
     if sub.status == "active" and as_utc(sub.expires_at) <= now:
         sub.status = "expired"
@@ -408,7 +467,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=user.id,
             api_key_id=api_key.id,
             subscription_id=sub.id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=403,
@@ -418,20 +477,20 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code=err_code,
         )
-        return JSONResponse(
-            status_code=403,
-            content={"error": err_code, "message": f"Your {plan.name} subscription is {sub.status}. Renew to continue."},
+        return _json_gateway_result(
+            403,
+            {"error": err_code, "message": f"Your {plan.name} subscription is {sub.status}. Renew to continue."},
         )
 
     allowed_methods = {m.strip().upper() for m in plan.allowed_methods.split(",") if m.strip()}
-    if request.method.upper() not in allowed_methods:
+    if upper_method not in allowed_methods:
         latency = (time.perf_counter() - started) * 1000
         _log_gateway_request(
             db,
             user_id=user.id,
             api_key_id=api_key.id,
             subscription_id=sub.id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=403,
@@ -441,11 +500,11 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code="METHOD_NOT_ALLOWED_FOR_PLAN",
         )
-        return JSONResponse(
-            status_code=403,
-            content={
+        return _json_gateway_result(
+            403,
+            {
                 "error": "METHOD_NOT_ALLOWED_FOR_PLAN",
-                "message": f"Method {request.method} is not permitted on {plan.name}. Allowed: {sorted(allowed_methods)}",
+                "message": f"Method {upper_method} is not permitted on {plan.name}. Allowed: {sorted(allowed_methods)}",
             },
         )
 
@@ -456,7 +515,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=user.id,
             api_key_id=api_key.id,
             subscription_id=sub.id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=403,
@@ -466,12 +525,11 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code="ENDPOINT_NOT_ALLOWED",
         )
-        return JSONResponse(
-            status_code=403,
-            content={"error": "ENDPOINT_NOT_ALLOWED", "message": f"Endpoint {full_path} is not enabled on your plan."},
+        return _json_gateway_result(
+            403,
+            {"error": "ENDPOINT_NOT_ALLOWED", "message": f"Endpoint {full_path} is not enabled on your plan."},
         )
 
-    # Sliding-window per-minute rate limit
     allowed_rate, rate_rem, retry_after = rate_limiter.check_and_record(api_key.id, plan.rate_limit_per_minute)
     if not allowed_rate:
         latency = (time.perf_counter() - started) * 1000
@@ -480,7 +538,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=user.id,
             api_key_id=api_key.id,
             subscription_id=sub.id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=429,
@@ -490,20 +548,19 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code="RATE_LIMIT_EXCEEDED",
         )
-        return JSONResponse(
-            status_code=429,
+        return _json_gateway_result(
+            429,
+            {
+                "error": "RATE_LIMIT_EXCEEDED",
+                "message": f"Rate limit of {plan.rate_limit_per_minute} req/min exceeded. Retry in {retry_after}s.",
+            },
             headers={
                 "Retry-After": str(retry_after),
                 "X-RateLimit-Limit": str(plan.rate_limit_per_minute),
                 "X-RateLimit-Remaining": "0",
             },
-            content={
-                "error": "RATE_LIMIT_EXCEEDED",
-                "message": f"Rate limit of {plan.rate_limit_per_minute} req/min exceeded. Retry in {retry_after}s.",
-            },
         )
 
-    # Atomic daily + monthly quota check & consumption
     quota_ok, quota_err, daily_rem, monthly_rem = _atomic_consume_quota(
         db, sub.id, plan.daily_request_limit, plan.monthly_request_limit
     )
@@ -514,7 +571,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=user.id,
             api_key_id=api_key.id,
             subscription_id=sub.id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=429,
@@ -524,26 +581,33 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code=quota_err,
         )
-        return JSONResponse(
+        await _best_effort_gateway_alert(
+            db,
+            user_id=user.id,
+            full_path=full_path,
             status_code=429,
+            error_code=quota_err,
+            plan_name=plan.name,
+            daily_limit=plan.daily_request_limit,
+            daily_rem=daily_rem,
+            monthly_limit=plan.monthly_request_limit,
+            monthly_rem=monthly_rem,
+        )
+        return _json_gateway_result(
+            429,
+            {
+                "error": quota_err,
+                "message": f"Plan quota reached ({quota_err}). Upgrade or wait for quota reset.",
+            },
             headers={
                 "X-Quota-Daily-Remaining": str(daily_rem),
                 "X-Quota-Monthly-Remaining": str(monthly_rem),
             },
-            content={
-                "error": quota_err,
-                "message": f"Plan quota reached ({quota_err}). Upgrade or wait for quota reset.",
-            },
         )
 
-    # Record per-key usage
     api_key.total_requests += 1
     api_key.last_used_at = now
     db.flush()
-
-    body_bytes = await request.body()
-    query_dict = dict(request.query_params)
-    req_headers = dict(request.headers)
 
     common_headers = {
         "X-Request-Id": str(uuid.uuid4()),
@@ -554,14 +618,13 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
         "X-Beta-Plan": plan.slug,
     }
 
-    # Try built-in endpoints if in builtin or hybrid mode
     if gw_mode in ("builtin", "hybrid"):
         builtin_result = _execute_builtin_endpoint(
             subpath,
-            request.method.upper(),
-            query_dict,
+            upper_method,
+            query_map,
             body_bytes,
-            req_headers,
+            headers_map,
             client_ip,
             plan,
             api_key,
@@ -575,7 +638,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
                 user_id=user.id,
                 api_key_id=api_key.id,
                 subscription_id=sub.id,
-                method=request.method,
+                method=upper_method,
                 path=full_path,
                 query_string=query_str,
                 status_code=resp_status,
@@ -585,9 +648,20 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
                 gateway_mode="builtin",
             )
             common_headers["X-Gateway-Mode"] = "builtin"
-            return JSONResponse(status_code=resp_status, content=resp_payload, headers=common_headers)
+            await _best_effort_gateway_alert(
+                db,
+                user_id=user.id,
+                full_path=full_path,
+                status_code=resp_status,
+                error_code=None,
+                plan_name=plan.name,
+                daily_limit=plan.daily_request_limit,
+                daily_rem=daily_rem,
+                monthly_limit=plan.monthly_request_limit,
+                monthly_rem=monthly_rem,
+            )
+            return _json_gateway_result(resp_status, resp_payload, headers=common_headers)
 
-    # Proxy mode (or hybrid fallback to configured Upstream Master API)
     upstream_base = (gw.upstream_base_url if gw else "").strip().rstrip("/")
     if not upstream_base or gw_mode == "builtin":
         latency = (time.perf_counter() - started) * 1000
@@ -596,7 +670,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=user.id,
             api_key_id=api_key.id,
             subscription_id=sub.id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=404,
@@ -606,10 +680,9 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode=gw_mode,
             error_code="ENDPOINT_NOT_FOUND",
         )
-        return JSONResponse(
-            status_code=404,
-            headers=common_headers,
-            content={
+        return _json_gateway_result(
+            404,
+            {
                 "error": "ENDPOINT_NOT_FOUND",
                 "message": f"No built-in endpoint at {full_path} and no external Upstream Master API URL is configured.",
                 "builtin_endpoints": [
@@ -623,9 +696,9 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
                     "/v1/utils/json-validate",
                 ],
             },
+            headers=common_headers,
         )
 
-    # Forward request to Master Upstream Backend injecting decrypted MASTER_API_KEY server-side ONLY
     cfg = get_settings()
     master_key = decrypt_secret(gw.encrypted_master_api_key, cfg) if gw else None
     if not master_key and cfg.MASTER_API_KEY:
@@ -637,7 +710,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
 
     forward_headers = {
         k: v
-        for k, v in req_headers.items()
+        for k, v in headers_map.items()
         if k.lower() not in ("host", "content-length", "x-api-key", "authorization", "cookie", "connection")
     }
     if master_key:
@@ -654,7 +727,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
     try:
         async with httpx.AsyncClient(timeout=timeout_sec) as client:
             upstream_resp = await client.request(
-                method=request.method,
+                method=upper_method,
                 url=target_url,
                 headers=forward_headers,
                 content=body_bytes if body_bytes else None,
@@ -665,7 +738,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=user.id,
             api_key_id=api_key.id,
             subscription_id=sub.id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=upstream_resp.status_code,
@@ -681,11 +754,23 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
         }
         resp_headers.update(common_headers)
         resp_headers["X-Gateway-Mode"] = "proxy"
-        return Response(
-            content=upstream_resp.content,
+        await _best_effort_gateway_alert(
+            db,
+            user_id=user.id,
+            full_path=full_path,
             status_code=upstream_resp.status_code,
-            headers=resp_headers,
-            media_type=upstream_resp.headers.get("content-type", "application/json"),
+            error_code="UPSTREAM_5XX" if upstream_resp.status_code >= 500 else None,
+            plan_name=plan.name,
+            daily_limit=plan.daily_request_limit,
+            daily_rem=daily_rem,
+            monthly_limit=plan.monthly_request_limit,
+            monthly_rem=monthly_rem,
+        )
+        return (
+            upstream_resp.status_code,
+            resp_headers,
+            upstream_resp.content,
+            upstream_resp.headers.get("content-type", "application/json"),
         )
     except httpx.RequestError as exc:
         latency = (time.perf_counter() - started) * 1000
@@ -694,7 +779,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             user_id=user.id,
             api_key_id=api_key.id,
             subscription_id=sub.id,
-            method=request.method,
+            method=upper_method,
             path=full_path,
             query_string=query_str,
             status_code=502,
@@ -704,8 +789,40 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
             gateway_mode="proxy",
             error_code="UPSTREAM_UNREACHABLE",
         )
-        return JSONResponse(
+        await _best_effort_gateway_alert(
+            db,
+            user_id=user.id,
+            full_path=full_path,
             status_code=502,
-            headers=common_headers,
-            content={"error": "UPSTREAM_UNREACHABLE", "message": f"Upstream API connection failed: {type(exc).__name__}"},
+            error_code="UPSTREAM_UNREACHABLE",
+            plan_name=plan.name,
+            daily_limit=plan.daily_request_limit,
+            daily_rem=daily_rem,
+            monthly_limit=plan.monthly_request_limit,
+            monthly_rem=monthly_rem,
         )
+        return _json_gateway_result(
+            502,
+            {"error": "UPSTREAM_UNREACHABLE", "message": f"Upstream API connection failed: {type(exc).__name__}"},
+            headers=common_headers,
+        )
+
+
+async def handle_gateway_request(request: Request, subpath: str, db: Session) -> Response:
+    body_bytes = await request.body()
+    status_code, resp_headers, content, media_type = await execute_gateway_core(
+        db,
+        method=request.method,
+        subpath=subpath,
+        query_dict=dict(request.query_params),
+        query_str=request.url.query or "",
+        body_bytes=body_bytes,
+        req_headers=dict(request.headers),
+        client_ip=get_client_ip(request),
+    )
+    return Response(
+        content=content,
+        status_code=status_code,
+        headers=resp_headers,
+        media_type=media_type,
+    )

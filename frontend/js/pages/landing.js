@@ -49,8 +49,8 @@ export function renderLandingPage(state, handlers) {
     },
     {
       icon: "03",
-      title: "Quotas, Logs & Playground",
-      desc: "Real-time daily/monthly caps, rate limits, live testing playground, and full admin controls.",
+      title: "Quotas, Logs & Telegram Bot",
+      desc: "Real-time daily/monthly caps, live testing playground, and 1-click @BotFather Telegram Bot control.",
     },
   ];
 
@@ -229,6 +229,7 @@ curl -s "${esc(baseUrl)}/geo/ip-parse?ip=8.8.8.8" \\
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-primary btn-sm" id="landing-full-docs">Read Documentation</button>
               <button class="btn btn-secondary btn-sm" id="landing-open-pg">Try in Playground</button>
+              <button class="btn btn-secondary btn-sm" id="landing-open-tg">✈ Connect Telegram Bot</button>
             </div>
           </div>
           <div class="code-block-wrap" style="margin:0;">
@@ -339,6 +340,7 @@ print(r.status_code, r.json())</pre>
   document.getElementById("hero-open-playground")?.addEventListener("click", () => handlers.navigate("#playground"));
   document.getElementById("landing-full-docs")?.addEventListener("click", () => handlers.navigate("#docs"));
   document.getElementById("landing-open-pg")?.addEventListener("click", () => handlers.navigate("#playground"));
+  document.getElementById("landing-open-tg")?.addEventListener("click", () => handlers.navigate("#dashboard?tab=telegram"));
 
   root.querySelectorAll("[data-buy-plan]").forEach((btn) => {
     btn.addEventListener("click", () => {

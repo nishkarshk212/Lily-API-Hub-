@@ -1,5 +1,7 @@
 """Razorpay Checkout order creation, HMAC verification, webhook processing, history, and receipts."""
 
+import html
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
@@ -26,6 +28,7 @@ from app.services.razorpay_service import (
     render_receipt_html,
     verify_razorpay_checkout_payment,
 )
+from app.services.telegram_service import notify_user_telegram
 
 router = APIRouter(prefix="/api/payments", tags=["Payments & Razorpay"])
 
@@ -67,6 +70,21 @@ async def verify_payment(
         razorpay_signature=payload.razorpay_signature,
         fetch_remote=True,
     )
+    try:
+        plan = db.get(SubscriptionPlan, order.plan_id)
+        await notify_user_telegram(
+            db,
+            user.id,
+            category="payment",
+            title="💳 Payment Verified & Plan Activated",
+            message_lines=[
+                f"Plan: <b>{html.escape(plan.name if plan else 'API Plan')}</b>",
+                f"Amount: <b>{html.escape(format_inr(order.amount_paise))}</b>",
+                f"Receipt: <code>{html.escape(order.receipt_number)}</code>",
+            ],
+        )
+    except Exception:
+        pass
     return {
         "status": "successful",
         "message": "Payment verified and API key provisioned.",

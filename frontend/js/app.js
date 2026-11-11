@@ -290,12 +290,14 @@ async function renderCurrentRoute() {
   if (route === "docs") {
     renderDocsPage(state, handlers);
   } else if (route === "dashboard") {
+    if (params.get("tab")) state.dashboardTab = params.get("tab");
     await renderDashboardPage(state, handlers);
   } else if (route === "playground") {
     await renderPlaygroundPage(state, handlers);
   } else if (route === "admin/login") {
     renderAdminLoginPage(state, handlers);
   } else if (route === "admin") {
+    if (params.get("tab")) state.adminTab = params.get("tab");
     await renderAdminDashboardPage(state, handlers);
   } else {
     state.route = "landing";

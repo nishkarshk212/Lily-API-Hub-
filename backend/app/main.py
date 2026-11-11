@@ -1,19 +1,22 @@
 """FastAPI application entrypoint for Beta API Hub by Sonic Network."""
 
+import asyncio
 from contextlib import asynccontextmanager
 import html
 import os
 from pathlib import Path
+import sys
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.database import ensure_db_ready, get_db, get_db_init_status
-from app.routers import admin, auth, gateway, keys, payments, plans, playground, public
+from app.core.database import SessionLocal, ensure_db_ready, get_db, get_db_init_status
+from app.routers import admin, auth, gateway, keys, payments, plans, playground, public, telegram
 from app.services.branding_service import get_effective_branding
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
@@ -24,7 +27,47 @@ async def lifespan(_app: FastAPI):
     ok, err = ensure_db_ready()
     if not ok and os.getenv("VERCEL") != "1":
         raise RuntimeError(f"Database initialization failed: {err}")
-    yield
+
+    cfg = get_settings()
+    poll_task = None
+    in_pytest = "pytest" in sys.modules or bool(os.getenv("PYTEST_CURRENT_TEST"))
+
+    if ok and not in_pytest:
+        if cfg.TELEGRAM_BOT_TOKEN.strip():
+            try:
+                from app.models.telegram import TelegramBot
+                from app.models.user import User
+                from app.services.telegram_service import connect_telegram_bot
+
+                with SessionLocal() as db:
+                    has_pbot = db.scalar(select(TelegramBot.id).where(TelegramBot.is_platform_bot.is_(True)).limit(1))
+                    if not has_pbot:
+                        admin_user = db.scalar(select(User).where(User.role == "admin").limit(1))
+                        if admin_user:
+                            await connect_telegram_bot(
+                                db,
+                                bot_token=cfg.TELEGRAM_BOT_TOKEN.strip(),
+                                owner_user=admin_user,
+                                is_platform_bot=True,
+                                settings=cfg,
+                            )
+            except Exception as exc:
+                print(f"[telegram_bootstrap_warning] {type(exc).__name__}: {exc}", file=sys.stderr)
+
+        if cfg.TELEGRAM_POLLING_ENABLED and os.getenv("VERCEL") != "1":
+            from app.services.telegram_service import telegram_polling_loop
+
+            poll_task = asyncio.create_task(telegram_polling_loop(SessionLocal))
+
+    try:
+        yield
+    finally:
+        if poll_task is not None:
+            poll_task.cancel()
+            try:
+                await poll_task
+            except asyncio.CancelledError:
+                pass
 
 
 def create_app() -> FastAPI:
@@ -58,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(keys.router)
     app.include_router(payments.router)
     app.include_router(playground.router)
+    app.include_router(telegram.router)
     app.include_router(admin.router)
     app.include_router(gateway.router)
 
