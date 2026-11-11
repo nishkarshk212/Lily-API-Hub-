@@ -111,19 +111,19 @@ def _build_main_menu_keyboard(
     frontend_url: str,
     is_platform_bot: bool,
 ) -> Dict[str, Any]:
-    rows: List[List[Dict[str, str]]] = [
-        [
-            {"text": "⚡ Quick API Tools", "callback_data": "m:tools"},
-            {"text": "💎 Plans & Pricing", "callback_data": "m:plans"},
-        ]
-    ]
+    rows: List[List[Dict[str, str]]] = []
     if is_privileged:
-        rows.insert(
-            0,
+        rows.append(
             [
                 {"text": "📊 Quota & Usage", "callback_data": "m:quota"},
                 {"text": "🔑 API Keys", "callback_data": "m:keys"},
-            ],
+            ]
+        )
+        rows.append(
+            [
+                {"text": "⚡ Quick API Tools", "callback_data": "m:tools"},
+                {"text": "💎 Plans & Pricing", "callback_data": "m:plans"},
+            ]
         )
         rows.append(
             [
@@ -137,12 +137,33 @@ def _build_main_menu_keyboard(
                 {"text": "❓ Help", "callback_data": "m:help"},
             ]
         )
+    elif is_platform_bot:
+        rows.append(
+            [
+                {"text": "💎 Plans & Pricing", "callback_data": "m:plans"},
+                {"text": "❓ Commands Help", "callback_data": "m:help"},
+            ]
+        )
     else:
+        rows.append(
+            [
+                {"text": "⚡ Quick API Tools", "callback_data": "m:tools"},
+                {"text": "💎 Plans & Pricing", "callback_data": "m:plans"},
+            ]
+        )
         rows.append([{"text": "❓ Commands Help", "callback_data": "m:help"}])
 
     if frontend_url and frontend_url.startswith("http"):
-        target = f"{frontend_url.rstrip('/')}/#dashboard" if is_privileged or is_platform_bot else frontend_url.rstrip("/")
-        rows.append([{"text": "🌐 Open Beta Web Portal", "url": target}])
+        if is_platform_bot:
+            target = f"{frontend_url.rstrip('/')}/#dashboard?tab=telegram"
+            label = "🔗 Connect Beta Account" if not is_privileged else "🌐 Open Beta Web Portal"
+        elif is_privileged:
+            target = f"{frontend_url.rstrip('/')}/#dashboard?tab=telegram"
+            label = "🌐 Open Beta Web Portal"
+        else:
+            target = frontend_url.rstrip("/")
+            label = "🌐 Open Beta Web Portal"
+        rows.append([{"text": label, "url": target}])
 
     return {"inline_keyboard": rows}
 
@@ -629,7 +650,10 @@ async def _run_gateway_for_bot(
     query_dict: Optional[Dict[str, str]] = None,
     body_obj: Optional[Any] = None,
 ) -> Tuple[int, Dict[str, str], str]:
-    target_user = actor_user or (db.get(User, bot.owner_user_id) if bot.owner_user_id else None)
+    if bot.is_platform_bot:
+        target_user = actor_user
+    else:
+        target_user = actor_user or (db.get(User, bot.owner_user_id) if bot.owner_user_id else None)
     key_row, raw_key, key_err = _resolve_active_user_key(db, bot, target_user)
     if not raw_key:
         return 400, {}, json.dumps({"error": "NO_ACTIVE_API_KEY", "message": key_err})
@@ -1366,6 +1390,9 @@ async def _handle_callback(
     data: str,
 ) -> Tuple[str, str]:
     privileged_only = {"m:quota", "m:keys", "m:logs", "m:alerts", "m:prof", "k:", "a:"}
+    if bot.is_platform_bot and not is_privileged and data not in ("m:home", "m:help", "m:plans"):
+        await responder.answer_callback(cb_id, "Connect your Beta account in Dashboard → Telegram Bot first.", show_alert=True)
+        return "denied", f"Unlinked callback {data}"
     if not is_privileged and (data in privileged_only or data.startswith(("k:", "a:"))):
         await responder.answer_callback(cb_id, "Account link or owner pairing required.", show_alert=True)
         return "denied", f"Unauthorized callback {data}"
@@ -1701,6 +1728,14 @@ async def _handle_text_or_command(
         text, kb = _format_plans_card(db, brand, frontend_url)
         await responder.send(chat_id, text, reply_markup=kb)
         return "ok", "plans"
+
+    if bot.is_platform_bot and not actor_user:
+        await responder.send(
+            chat_id,
+            "🔒 Link your Beta account first to run live API tools and manage keys!\n\nOpen <b>Dashboard → Telegram Bot</b> on the website and tap <b>Connect in Telegram</b>.",
+            reply_markup=menu_kb,
+        )
+        return "denied", f"unlinked:{cmd}"
 
     # Gateway API Commands (allowed for owner, linked users, or public_gateway mode)
     if cmd == "/status":

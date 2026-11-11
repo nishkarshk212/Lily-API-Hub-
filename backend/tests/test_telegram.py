@@ -291,6 +291,23 @@ def test_platform_bot_admin_linking_alerts_polling_and_broadcast(client, test_en
     assert overview["telegram_platform_bot_enabled"] is True
     assert overview["telegram_platform_bot_username"] == "beta_platform_test_bot"
 
+    # Unlinked stranger on Platform Bot CANNOT run /status (blocked until account linked)
+    queue.append(
+        {
+            "update_id": 499,
+            "message": {
+                "message_id": 1,
+                "from": {"id": 444444, "username": "unlinked_guy", "first_name": "Unlinked"},
+                "chat": {"id": 444444, "type": "private"},
+                "text": "/status",
+            },
+        }
+    )
+    tg_calls.clear()
+    unlinked_poll = client.post("/api/admin/telegram/platform-bot/poll")
+    assert unlinked_poll.status_code == 200
+    assert any("Link your Beta account first" in c["payload"].get("text", "") for c in tg_calls if c["method"] == "sendMessage")
+
     # Admin logs out, normal user registers & requests platform link token
     client.post("/api/auth/logout")
     reg = client.post(
