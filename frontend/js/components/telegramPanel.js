@@ -44,7 +44,7 @@ export function openTelegramSimulatorModal(bot) {
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              ${["/start", "/quota", "/keys", "/status", "/uuid 2", "/dns example.com", "/hash sha256 beta", "/plans"]
+              ${["/start", "/quota", "/keys", "/keyusage", "/status", "/uuid 2", "/dns example.com", "/hash sha256 beta", "/plans"]
                 .map((cmd) => `<button type="button" class="btn btn-secondary btn-sm mono" data-sim-quick="${esc(cmd)}">${esc(cmd)}</button>`)
                 .join("")}
             </div>
@@ -74,11 +74,17 @@ export function openTelegramSimulatorModal(bot) {
                                 (row) => `
                                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                                   ${row
-                                    .map((b) =>
-                                      b.url
-                                        ? `<a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" href="${esc(b.url)}">${esc(b.text)} ↗</a>`
-                                        : `<span style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:4px 9px;font-size:12px;color:#cbd5e1;">${esc(b.text)}</span>`
-                                    )
+                                    .map((b) => {
+                                      const stMap = {
+                                        primary: "background:#2563eb;border:1px solid #3b82f6;color:#ffffff;",
+                                        success: "background:#16a34a;border:1px solid #22c55e;color:#ffffff;",
+                                        danger: "background:#dc2626;border:1px solid #ef4444;color:#ffffff;",
+                                      };
+                                      const pillStyle = stMap[b.style] || "background:#0f172a;border:1px solid #334155;color:#cbd5e1;";
+                                      return b.url
+                                        ? `<a style="display:inline-flex;align-items:center;text-decoration:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;${pillStyle}" target="_blank" rel="noopener" href="${esc(b.url)}">${esc(b.text)} ↗</a>`
+                                        : `<span style="border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;${pillStyle}">${esc(b.text)}</span>`;
+                                    })
                                     .join("")}
                                 </div>`
                               )
@@ -900,3 +906,4 @@ export function bindAdminTelegramEvents({ reloadAdmin }) {
   });
   document.getElementById("adm-tg-test-broadcast")?.addEventListener("click", () => sendBroadcast(true));
 }
+

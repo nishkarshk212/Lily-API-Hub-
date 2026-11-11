@@ -151,8 +151,9 @@ Authorization: Bearer ${esc(sampleDocsKey)}</pre>
             <table class="data-table">
               <thead><tr><th>Command</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td class="mono">/start &amp; /menu</td><td>Open interactive inline button menu or complete 1-click pairing / account linking</td></tr>
-                <tr><td class="mono">/quota &amp; /keys</td><td>Inspect daily/cycle progress bars and create, reveal, rotate or revoke API keys</td></tr>
+                <tr><td class="mono">/start &amp; /menu</td><td>Open coloured inline button menu or complete 1-click pairing / account linking</td></tr>
+                <tr><td class="mono">/quota &amp; /keyusage</td><td>Inspect daily/cycle progress bars and per-API-key calls, health rate, latency &amp; top endpoints</td></tr>
+                <tr><td class="mono">/keys</td><td>Create, inspect per-key usage, reveal, rotate, or revoke API keys</td></tr>
                 <tr><td class="mono">/status, /time, /uuid</td><td>Run built-in gateway health check, UTC clock sync, and UUIDv4 generator</td></tr>
                 <tr><td class="mono">/hash, /ip, /dns, /json</td><td>Compute digests, inspect IPs, resolve DNS records, and validate JSON payloads</td></tr>
                 <tr><td class="mono">/call &lt;METHOD&gt; &lt;/v1/path&gt;</td><td>Invoke any gateway or upstream Master API endpoint directly using your key</td></tr>

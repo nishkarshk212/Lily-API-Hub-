@@ -2,7 +2,7 @@
  * Reusable Modal dialogs: Authentication, Confirm, New Key, Admin Plan Editor.
  */
 
-import { api, apiUrl, esc, setAuthToken, showToast } from "../api.js";
+import { api, apiUrl, esc, formatDate, formatNum, setAuthToken, showToast, statusBadge } from "../api.js";
 
 export function closeModal() {
   const root = document.getElementById("modal-root");
@@ -401,6 +401,117 @@ export function openPlanEditorModal(plan, onSaved) {
       showToast(err.message, "error");
       btn.disabled = false;
     }
+  });
+}
+
+export function openKeyUsageModal({ key, usage, plan }) {
+  const root = document.getElementById("modal-root");
+  if (!root) return;
+
+  const u = usage || {};
+  const topEps = u.top_endpoints || [];
+  const recents = u.recent_logs || [];
+  const dailyPct = plan?.daily_request_limit ? Math.min(100, Math.round(((u.today_requests || 0) / plan.daily_request_limit) * 100)) : 0;
+
+  root.innerHTML = `
+    <div class="modal-backdrop" id="ku-backdrop">
+      <div class="modal-card wide" style="max-width:740px;">
+        <div class="modal-header">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 style="margin:0;">📊 API Key Usage — ${esc(key.name)}</h3>
+              ${statusBadge(key.status)}
+            </div>
+            <p class="mono" style="margin:4px 0 0;font-size:12.5px;color:var(--text-muted);">${esc(key.masked_key)} · Last used ${formatDate(key.last_used_at)}</p>
+          </div>
+          <button class="modal-close" id="ku-close">×</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;">
+          <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
+            <span style="font-size:11.5px;color:var(--text-muted);">Today (UTC)</span>
+            <strong style="display:block;font-size:18px;color:#0a0a0a;">${formatNum(u.today_requests || 0)}</strong>
+          </div>
+          <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
+            <span style="font-size:11.5px;color:var(--text-muted);">Total Requests</span>
+            <strong style="display:block;font-size:18px;color:#0a0a0a;">${formatNum(u.total_requests ?? key.total_requests ?? 0)}</strong>
+          </div>
+          <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
+            <span style="font-size:11.5px;color:var(--text-muted);">Success Rate</span>
+            <strong style="display:block;font-size:18px;color:#059669;">${esc(u.success_rate ?? 100)}%</strong>
+          </div>
+          <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
+            <span style="font-size:11.5px;color:var(--text-muted);">Avg Latency</span>
+            <strong style="display:block;font-size:18px;color:#2563eb;">${esc(u.avg_latency_ms || 0)} ms</strong>
+          </div>
+        </div>
+
+        ${
+          plan
+            ? `<div class="quota-bar-wrap" style="margin-bottom:14px;">
+                <div class="quota-bar-top"><span>Share of Daily Plan Cap (${esc(plan.name)})</span><span>${formatNum(u.today_requests || 0)} / ${formatNum(plan.daily_request_limit)} (${dailyPct}%)</span></div>
+                <div class="quota-track"><div class="quota-fill" style="width:${dailyPct}%"></div></div>
+              </div>`
+            : ""
+        }
+
+        <div class="two-col" style="margin-top:8px;">
+          <div>
+            <h4 style="margin:0 0 8px;font-size:13.5px;">Top Endpoints for This Key</h4>
+            <div class="table-wrap" style="max-height:200px;overflow-y:auto;">
+              <table class="data-table">
+                <thead><tr><th>Endpoint</th><th>Hits</th><th>Avg</th></tr></thead>
+                <tbody>
+                  ${
+                    topEps.length === 0
+                      ? `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No endpoint hits yet.</td></tr>`
+                      : topEps
+                          .map(
+                            (ep) => `
+                            <tr>
+                              <td class="mono" style="font-size:12px;">${esc(ep.method)} ${esc(ep.path)}</td>
+                              <td><strong>${formatNum(ep.hits)}</strong></td>
+                              <td class="mono" style="font-size:12px;">${ep.avg_latency_ms} ms</td>
+                            </tr>`
+                          )
+                          .join("")
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h4 style="margin:0 0 8px;font-size:13.5px;">Recent Calls with This Key</h4>
+            <div class="table-wrap" style="max-height:200px;overflow-y:auto;">
+              <table class="data-table">
+                <thead><tr><th>Route</th><th>HTTP</th><th>Latency</th></tr></thead>
+                <tbody>
+                  ${
+                    recents.length === 0
+                      ? `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No recent calls yet.</td></tr>`
+                      : recents
+                          .map(
+                            (r) => `
+                            <tr>
+                              <td class="mono" style="font-size:12px;">${esc(r.method)} ${esc(r.path)}</td>
+                              <td><span class="badge badge-${r.status_code < 400 ? "success" : r.status_code === 429 ? "warning" : "danger"}">${r.status_code}</span></td>
+                              <td class="mono" style="font-size:12px;">${r.latency_ms} ms</td>
+                            </tr>`
+                          )
+                          .join("")
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("ku-close")?.addEventListener("click", closeModal);
+  document.getElementById("ku-backdrop")?.addEventListener("click", (e) => {
+    if (e.target.id === "ku-backdrop") closeModal();
   });
 }
 

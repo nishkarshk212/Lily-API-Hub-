@@ -22,7 +22,7 @@ import {
   statusBadge,
 } from "../api.js";
 import { bindChartTooltips, renderTrafficChart } from "../components/charts.js";
-import { openConfirmModal, openCreateKeyModal } from "../components/modals.js";
+import { openConfirmModal, openCreateKeyModal, openKeyUsageModal } from "../components/modals.js";
 import { bindUserTelegramEvents, renderUserTelegramTab } from "../components/telegramPanel.js";
 
 function animateCounters(root) {
@@ -233,9 +233,10 @@ export async function renderDashboardPage(state, handlers) {
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   <button class="btn btn-secondary btn-sm" data-reveal-key="${esc(credKey.id)}">${revealedKeys[credKey.id] ? "Hide Key" : "Reveal Key"}</button>
                   <button class="btn btn-secondary btn-sm" data-copy-key="${esc(credKey.id)}">Copy Key</button>
+                  <button class="btn btn-secondary btn-sm" data-key-usage="${esc(credKey.id)}">📊 Usage (${formatNum(credKey.usage?.today_requests ?? 0)} today)</button>
                   <button class="btn btn-ghost btn-sm" style="color:#cbd5e1;" id="dash-goto-keys">Manage Keys →</button>
                 </div>
-                <span style="font-size:11.5px;color:#94a3b8;">Created ${formatDate(credKey.created_at)}</span>
+                <span style="font-size:11.5px;color:#94a3b8;">${formatNum(credKey.total_requests)} total · ${esc(credKey.usage?.success_rate ?? 100)}% ok</span>
               </div>
             `
                 : `<div style="font-size:12px;color:#94a3b8;">Click <strong>⚡ Generate API Key</strong> above to provision a key instantly.</div>`
@@ -445,7 +446,7 @@ export async function renderDashboardPage(state, handlers) {
                           <span class="badge badge-neutral mono" style="margin-left:6px;">${esc(k.master_link_tag)}</span>
                         </div>
                         <div style="font-size:12.5px;color:var(--text-muted);">
-                          ${formatNum(k.total_requests)} calls · Created ${formatDate(k.created_at)}
+                          <strong>${formatNum(k.usage?.today_requests ?? 0)}</strong> today · <strong>${formatNum(k.total_requests)}</strong> total · ${esc(k.usage?.success_rate ?? 100)}% ok · ${esc(k.usage?.avg_latency_ms || 0)}ms avg
                           ${k.last_used_at ? ` · Last used ${formatDate(k.last_used_at)}` : ""}
                         </div>
                       </div>
@@ -463,6 +464,7 @@ export async function renderDashboardPage(state, handlers) {
                         !isRevoked
                           ? `
                         <div class="key-actions-row">
+                          <button class="btn btn-secondary btn-sm" data-key-usage="${esc(k.id)}">📊 Usage Stats</button>
                           <button class="btn btn-secondary btn-sm" data-reveal-key="${esc(k.id)}">
                             ${revealed ? "Hide Key" : "Reveal Key"}
                           </button>
@@ -927,6 +929,18 @@ export async function renderDashboardPage(state, handlers) {
         const id = btn.getAttribute("data-toggle-curl");
         curlOpenKeys[id] = !curlOpenKeys[id];
         draw();
+      });
+    });
+
+    root.querySelectorAll("[data-key-usage]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-key-usage");
+        try {
+          const res = await api.get(`/api/keys/${id}/usage`);
+          openKeyUsageModal({ key: res.key, usage: res.usage, plan });
+        } catch (err) {
+          showToast(err.message, "error");
+        }
       });
     });
 

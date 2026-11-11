@@ -2,10 +2,10 @@
 
 from datetime import timedelta
 import re
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -17,7 +17,7 @@ from app.core.security import (
     utc_now,
 )
 from app.models.api_key import ApiKey
-from app.models.gateway import MasterGatewayConfig
+from app.models.gateway import ApiRequestLog, MasterGatewayConfig
 from app.models.plan import Subscription, SubscriptionPlan
 from app.models.user import User
 from app.services.auth_service import as_utc
@@ -196,8 +196,120 @@ def create_additional_key(db: Session, user: User, name: str) -> ApiKey:
     return key
 
 
-def serialize_api_key(key: ApiKey) -> dict:
+def get_user_keys_usage_map(db: Session, user_id: str) -> Dict[str, Dict[str, Any]]:
+    """Aggregate live per-API-key request telemetry across today, total, health rate & latency."""
+    today_start = utc_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = db.execute(
+        select(
+            ApiRequestLog.api_key_id,
+            func.count(ApiRequestLog.id),
+            func.coalesce(
+                func.sum(case((ApiRequestLog.created_at >= today_start, 1), else_=0)),
+                0,
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        ((ApiRequestLog.status_code >= 200) & (ApiRequestLog.status_code < 400), 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+            func.coalesce(
+                func.sum(case((ApiRequestLog.status_code == 429, 1), else_=0)),
+                0,
+            ),
+            func.coalesce(func.avg(ApiRequestLog.latency_ms), 0.0),
+        )
+        .where(ApiRequestLog.user_id == user_id, ApiRequestLog.api_key_id.is_not(None))
+        .group_by(ApiRequestLog.api_key_id)
+    ).all()
+
+    result: Dict[str, Dict[str, Any]] = {}
+    for key_id, total_cnt, today_cnt, ok_cnt, limited_cnt, avg_lat in rows:
+        total_i = int(total_cnt or 0)
+        ok_i = int(ok_cnt or 0)
+        today_i = int(today_cnt or 0)
+        limited_i = int(limited_cnt or 0)
+        result[str(key_id)] = {
+            "today_requests": today_i,
+            "logged_requests": total_i,
+            "success_requests": ok_i,
+            "error_requests": max(0, total_i - ok_i),
+            "rate_limited_requests": limited_i,
+            "success_rate": round((ok_i / total_i) * 100, 1) if total_i else 100.0,
+            "avg_latency_ms": round(float(avg_lat or 0.0), 2),
+        }
+    return result
+
+
+def get_single_key_usage_detail(db: Session, key: ApiKey, *, recent_limit: int = 6) -> Dict[str, Any]:
+    """Return full telemetry for one API key: totals, top endpoints, and recent logs."""
+    usage_map = get_user_keys_usage_map(db, key.user_id)
+    summary = usage_map.get(
+        key.id,
+        {
+            "today_requests": 0,
+            "logged_requests": 0,
+            "success_requests": 0,
+            "error_requests": 0,
+            "rate_limited_requests": 0,
+            "success_rate": 100.0,
+            "avg_latency_ms": 0.0,
+        },
+    )
+
+    top_rows = db.execute(
+        select(
+            ApiRequestLog.method,
+            ApiRequestLog.path,
+            func.count(ApiRequestLog.id).label("hits"),
+            func.coalesce(func.avg(ApiRequestLog.latency_ms), 0.0).label("avg_ms"),
+        )
+        .where(ApiRequestLog.api_key_id == key.id)
+        .group_by(ApiRequestLog.method, ApiRequestLog.path)
+        .order_by(func.count(ApiRequestLog.id).desc())
+        .limit(5)
+    ).all()
+
+    recent_logs = db.scalars(
+        select(ApiRequestLog)
+        .where(ApiRequestLog.api_key_id == key.id)
+        .order_by(ApiRequestLog.created_at.desc())
+        .limit(recent_limit)
+    ).all()
+
     return {
+        "key_id": key.id,
+        "total_requests": key.total_requests,
+        "last_used_at": key.last_used_at,
+        **summary,
+        "top_endpoints": [
+            {
+                "method": m,
+                "path": p,
+                "hits": int(hits),
+                "avg_latency_ms": round(float(avg_ms or 0.0), 1),
+            }
+            for m, p, hits, avg_ms in top_rows
+        ],
+        "recent_logs": [
+            {
+                "method": l.method,
+                "path": l.path,
+                "status_code": l.status_code,
+                "latency_ms": round(float(l.latency_ms), 1),
+                "error_code": l.error_code,
+                "created_at": l.created_at,
+            }
+            for l in recent_logs
+        ],
+    }
+
+
+def serialize_api_key(key: ApiKey, usage: Optional[Dict[str, Any]] = None) -> dict:
+    payload = {
         "id": key.id,
         "name": key.name,
         "masked_key": f"{key.key_prefix}••••••••••••{key.key_last4}",
@@ -211,6 +323,9 @@ def serialize_api_key(key: ApiKey) -> dict:
         "created_at": key.created_at,
         "subscription_id": key.subscription_id,
     }
+    if usage is not None:
+        payload["usage"] = usage
+    return payload
 
 
 def list_user_keys(db: Session, user_id: str) -> List[ApiKey]:

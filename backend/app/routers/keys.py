@@ -2,16 +2,19 @@
 
 import html
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.api_key import ApiKey
 from app.models.user import User
 from app.routers.deps import get_current_user
 from app.schemas.domain import ApiKeyCreateRequest
 from app.services.auth_service import get_client_ip, record_audit
 from app.services.key_service import (
     create_additional_key,
+    get_single_key_usage_detail,
+    get_user_keys_usage_map,
     list_user_keys,
     regenerate_user_key,
     reveal_user_key,
@@ -41,7 +44,25 @@ async def _notify_key_event(db: Session, user_id: str, title: str, key_name: str
 @router.get("")
 def get_my_keys(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     keys = list_user_keys(db, user.id)
-    return {"keys": [serialize_api_key(k) for k in keys]}
+    usage_map = get_user_keys_usage_map(db, user.id)
+    default_usage = {
+        "today_requests": 0,
+        "logged_requests": 0,
+        "success_requests": 0,
+        "error_requests": 0,
+        "rate_limited_requests": 0,
+        "success_rate": 100.0,
+        "avg_latency_ms": 0.0,
+    }
+    return {"keys": [serialize_api_key(k, usage=usage_map.get(k.id, default_usage)) for k in keys]}
+
+
+@router.get("/{key_id}/usage")
+def get_key_usage(key_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    key = db.get(ApiKey, key_id)
+    if not key or key.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found.")
+    return {"key": serialize_api_key(key), "usage": get_single_key_usage_detail(db, key)}
 
 
 @router.post("")

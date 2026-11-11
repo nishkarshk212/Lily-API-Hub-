@@ -2,6 +2,7 @@
 
 from app.core.config import get_settings
 from app.models.telegram import TelegramBot
+from app.services.telegram_enums import ButtonStyle, ikb_button
 from app.services.telegram_service import TelegramApiError
 
 
@@ -392,3 +393,92 @@ def test_platform_bot_admin_linking_alerts_polling_and_broadcast(client, test_en
     st_call = client.get("/v1/status", headers={"X-API-Key": raw_after})
     assert st_call.status_code == 200
     assert any("80%+ Quota Threshold" in c["payload"].get("text", "") for c in tg_calls if c["method"] == "sendMessage")
+
+
+def test_telegram_coloured_button_styles_and_api_key_usage(client, monkeypatch):
+    monkeypatch.setenv("APP_PUBLIC_URL", "https://beta.13.54.201.131.sslip.io")
+    get_settings.cache_clear()
+    tg_calls = _make_fake_telegram_api(monkeypatch)
+
+    # Register user, activate Free Sandbox, generate some API calls across multiple endpoints
+    assert client.post(
+        "/api/auth/register",
+        json={"email": "usageuser@example.com", "password": "Password123", "full_name": "Usage Dev"},
+    ).status_code == 200
+    plans = client.get("/api/plans").json()
+    free_plan = next(p for p in plans if p["price_paise"] == 0)
+    act = client.post(f"/api/subscriptions/activate-free?plan_id={free_plan['id']}")
+    assert act.status_code == 200
+    key_id = act.json()["api_key"]["id"]
+    raw_key = client.get(f"/api/keys/{key_id}/reveal").json()["api_key"]
+
+    # Execute 3 calls across 2 endpoints using this key
+    assert client.get("/v1/status", headers={"X-API-Key": raw_key}).status_code == 200
+    assert client.get("/v1/status", headers={"X-API-Key": raw_key}).status_code == 200
+    assert client.post(
+        "/v1/crypto/hash",
+        headers={"X-API-Key": raw_key},
+        json={"text": "key-usage-check", "algorithm": "sha256"},
+    ).status_code == 200
+
+    # Website GET /api/keys and GET /api/keys/{key_id}/usage include per-key telemetry
+    keys_res = client.get("/api/keys").json()["keys"]
+    assert len(keys_res) == 1
+    assert keys_res[0]["usage"]["today_requests"] == 3
+    assert keys_res[0]["usage"]["logged_requests"] == 3
+    assert keys_res[0]["usage"]["success_rate"] == 100.0
+
+    usage_res = client.get(f"/api/keys/{key_id}/usage").json()
+    assert usage_res["usage"]["today_requests"] == 3
+    assert usage_res["usage"]["top_endpoints"][0]["path"] == "/v1/status"
+    assert usage_res["usage"]["top_endpoints"][0]["hits"] == 2
+    assert len(usage_res["usage"]["recent_logs"]) == 3
+
+    # Verify ButtonStyle helper omits DEFAULT and sets primary/success/danger cleanly
+    assert "style" not in ikb_button("Back", callback_data="m:home", style=ButtonStyle.DEFAULT)
+    assert ikb_button("Primary", callback_data="m:quota", style=ButtonStyle.PRIMARY)["style"] == "primary"
+    assert ikb_button("Success", callback_data="m:keys", style=ButtonStyle.SUCCESS)["style"] == "success"
+    assert ikb_button("Danger", callback_data="k:rva:1", style=ButtonStyle.DANGER)["style"] == "danger"
+
+    # Connect custom bot and verify simulated coloured buttons & per-key usage commands
+    conn = client.post(
+        "/api/telegram/bots",
+        json={"bot_token": "777001000:custom_AAF_usage_colour_token_99999", "api_key_id": key_id},
+    )
+    assert conn.status_code == 201
+    bot_id = conn.json()["bot"]["id"]
+
+    # /start shows coloured menu buttons
+    sim_start = client.post(f"/api/telegram/bots/{bot_id}/simulate", json={"text": "/start", "as_owner": True}).json()
+    start_kb = sim_start["replies"][0]["reply_markup"]["inline_keyboard"]
+    flat_styles = {btn["text"]: btn.get("style") for row in start_kb for btn in row}
+    assert flat_styles["📊 Quota & Usage"] == "primary"
+    assert flat_styles["🔑 API Keys"] == "success"
+
+    # /keys shows coloured Usage / Reveal / Rotate / Revoke buttons + today count
+    sim_keys = client.post(f"/api/telegram/bots/{bot_id}/simulate", json={"text": "/keys", "as_owner": True}).json()
+    keys_text = sim_keys["replies"][0]["text"]
+    assert "<b>3</b> today" in keys_text
+    assert "<b>3</b> total" in keys_text
+    keys_kb = sim_keys["replies"][0]["reply_markup"]["inline_keyboard"]
+    key_btn_styles = {btn["text"]: btn.get("style") for row in keys_kb for btn in row}
+    assert key_btn_styles["📊 Usage"] == "primary"
+    assert key_btn_styles["👁 Reveal"] == "success"
+    assert key_btn_styles["🔄 Rotate"] == "primary"
+    assert key_btn_styles["🗑 Revoke"] == "danger"
+
+    # /keyusage shows multi-key share breakdown & stats
+    sim_ku = client.post(f"/api/telegram/bots/{bot_id}/simulate", json={"text": "/keyusage", "as_owner": True}).json()
+    assert "API Key Usage Analytics" in sim_ku["replies"][0]["text"]
+    assert "Today: <b>3</b>" in sim_ku["replies"][0]["text"]
+
+    # /keyusage <last4> opens single-key detailed card with top endpoints & recent calls
+    last4 = keys_res[0]["key_last4"]
+    sim_single = client.post(
+        f"/api/telegram/bots/{bot_id}/simulate", json={"text": f"/keyusage {last4}", "as_owner": True}
+    ).json()
+    single_text = sim_single["replies"][0]["text"]
+    assert "API Key Usage Details" in single_text
+    assert "/v1/status" in single_text
+    assert "/v1/crypto/hash" in single_text
+    assert tg_calls  # setup used mock without real external calls

@@ -36,6 +36,8 @@ from app.services.gateway_service import execute_gateway_core
 from app.services.key_service import (
     create_additional_key,
     get_active_subscription,
+    get_single_key_usage_detail,
+    get_user_keys_usage_map,
     list_user_keys,
     provision_subscription_and_key,
     regenerate_user_key,
@@ -43,14 +45,16 @@ from app.services.key_service import (
     revoke_user_key,
 )
 from app.services.razorpay_service import format_inr
+from app.services.telegram_enums import ButtonStyle, ikb_button, ikb_markup
 
 TELEGRAM_TEXT_LIMIT = 3900
 
 DEFAULT_BOT_COMMANDS = [
     {"command": "start", "description": "Open menu & connect account"},
-    {"command": "menu", "description": "Interactive command buttons"},
-    {"command": "quota", "description": "Daily & monthly quota usage"},
-    {"command": "keys", "description": "View, create & rotate API keys"},
+    {"command": "menu", "description": "Interactive coloured button menu"},
+    {"command": "quota", "description": "Daily, monthly & key quota usage"},
+    {"command": "keys", "description": "View, create, reveal & rotate API keys"},
+    {"command": "keyusage", "description": "Detailed per-API-key usage & latency"},
     {"command": "status", "description": "Test GET /v1/status gateway"},
     {"command": "plans", "description": "Compare API plans & limits"},
     {"command": "logs", "description": "Recent API gateway requests"},
@@ -111,61 +115,58 @@ def _build_main_menu_keyboard(
     frontend_url: str,
     is_platform_bot: bool,
 ) -> Dict[str, Any]:
-    rows: List[List[Dict[str, str]]] = []
+    rows: List[List[Dict[str, Any]]] = []
     if is_privileged:
         rows.append(
             [
-                {"text": "📊 Quota & Usage", "callback_data": "m:quota"},
-                {"text": "🔑 API Keys", "callback_data": "m:keys"},
+                ikb_button("📊 Quota & Usage", callback_data="m:quota", style=ButtonStyle.PRIMARY),
+                ikb_button("📈 Key Usage", callback_data="m:kusage", style=ButtonStyle.PRIMARY),
             ]
         )
         rows.append(
             [
-                {"text": "⚡ Quick API Tools", "callback_data": "m:tools"},
-                {"text": "💎 Plans & Pricing", "callback_data": "m:plans"},
+                ikb_button("🔑 API Keys", callback_data="m:keys", style=ButtonStyle.SUCCESS),
+                ikb_button("⚡ Quick Tools", callback_data="m:tools", style=ButtonStyle.SUCCESS),
             ]
         )
         rows.append(
             [
-                {"text": "📜 Recent Logs", "callback_data": "m:logs"},
-                {"text": "🔔 Alert Settings", "callback_data": "m:alerts"},
+                ikb_button("📜 Recent Logs", callback_data="m:logs", style=ButtonStyle.DEFAULT),
+                ikb_button("🔔 Alert Settings", callback_data="m:alerts", style=ButtonStyle.DEFAULT),
             ]
         )
         rows.append(
             [
-                {"text": "👤 Profile", "callback_data": "m:prof"},
-                {"text": "❓ Help", "callback_data": "m:help"},
+                ikb_button("💎 Plans", callback_data="m:plans", style=ButtonStyle.DEFAULT),
+                ikb_button("👤 Profile", callback_data="m:prof", style=ButtonStyle.DEFAULT),
+                ikb_button("❓ Help", callback_data="m:help", style=ButtonStyle.DEFAULT),
             ]
         )
     elif is_platform_bot:
         rows.append(
             [
-                {"text": "💎 Plans & Pricing", "callback_data": "m:plans"},
-                {"text": "❓ Commands Help", "callback_data": "m:help"},
+                ikb_button("💎 Plans & Pricing", callback_data="m:plans", style=ButtonStyle.PRIMARY),
+                ikb_button("❓ Commands Help", callback_data="m:help", style=ButtonStyle.DEFAULT),
             ]
         )
     else:
         rows.append(
             [
-                {"text": "⚡ Quick API Tools", "callback_data": "m:tools"},
-                {"text": "💎 Plans & Pricing", "callback_data": "m:plans"},
+                ikb_button("⚡ Quick API Tools", callback_data="m:tools", style=ButtonStyle.SUCCESS),
+                ikb_button("💎 Plans & Pricing", callback_data="m:plans", style=ButtonStyle.PRIMARY),
             ]
         )
-        rows.append([{"text": "❓ Commands Help", "callback_data": "m:help"}])
+        rows.append([ikb_button("❓ Commands Help", callback_data="m:help", style=ButtonStyle.DEFAULT)])
 
     if frontend_url and frontend_url.startswith("http"):
-        if is_platform_bot:
+        if is_platform_bot and not is_privileged:
             target = f"{frontend_url.rstrip('/')}/#dashboard?tab=telegram"
-            label = "🔗 Connect Beta Account" if not is_privileged else "🌐 Open Beta Web Portal"
-        elif is_privileged:
-            target = f"{frontend_url.rstrip('/')}/#dashboard?tab=telegram"
-            label = "🌐 Open Beta Web Portal"
+            rows.append([ikb_button("🔗 Connect Beta Account", url=target, style=ButtonStyle.SUCCESS)])
         else:
-            target = frontend_url.rstrip("/")
-            label = "🌐 Open Beta Web Portal"
-        rows.append([{"text": label, "url": target}])
+            target = f"{frontend_url.rstrip('/')}/#dashboard?tab=telegram" if (is_privileged or is_platform_bot) else frontend_url.rstrip("/")
+            rows.append([ikb_button("🌐 Open Beta Web Portal", url=target, style=ButtonStyle.PRIMARY)])
 
-    return {"inline_keyboard": rows}
+    return ikb_markup(rows)
 
 
 def _resolve_public_url(explicit_public_url: str = "", cfg: Optional[Settings] = None) -> str:
@@ -649,12 +650,23 @@ async def _run_gateway_for_bot(
     path: str,
     query_dict: Optional[Dict[str, str]] = None,
     body_obj: Optional[Any] = None,
+    override_key_id: Optional[str] = None,
 ) -> Tuple[int, Dict[str, str], str]:
-    if bot.is_platform_bot:
-        target_user = actor_user
+    raw_key: Optional[str] = None
+    key_err: Optional[str] = None
+    if override_key_id and actor_user:
+        krow = db.get(ApiKey, override_key_id)
+        if not krow or krow.user_id != actor_user.id or krow.status != "active":
+            return 400, {}, json.dumps({"error": "KEY_UNAVAILABLE", "message": "Selected API key is not active."})
+        raw_key = decrypt_secret(krow.encrypted_key)
+        if not raw_key:
+            return 500, {}, json.dumps({"error": "KEY_DECRYPT_FAILED", "message": "Could not decrypt API key."})
     else:
-        target_user = actor_user or (db.get(User, bot.owner_user_id) if bot.owner_user_id else None)
-    key_row, raw_key, key_err = _resolve_active_user_key(db, bot, target_user)
+        if bot.is_platform_bot:
+            target_user = actor_user
+        else:
+            target_user = actor_user or (db.get(User, bot.owner_user_id) if bot.owner_user_id else None)
+        _, raw_key, key_err = _resolve_active_user_key(db, bot, target_user)
     if not raw_key:
         return 400, {}, json.dumps({"error": "NO_ACTIVE_API_KEY", "message": key_err})
 
@@ -721,6 +733,20 @@ def _format_quota_card(db: Session, user: User, brand: Dict[str, str]) -> str:
     rate = round((ok_calls / total_calls) * 100, 1) if total_calls else 100.0
     days_left = max(0, (sub.expires_at.replace(tzinfo=None) - utc_now().replace(tzinfo=None)).days)
 
+    keys = list_user_keys(db, user.id)
+    usage_map = get_user_keys_usage_map(db, user.id)
+    key_lines: List[str] = []
+    for k in keys[:5]:
+        u = usage_map.get(k.id, {})
+        dot = "🟢" if k.status == "active" else "🔴"
+        today_k = int(u.get("today_requests", 0))
+        sr_k = u.get("success_rate", 100.0)
+        key_lines.append(
+            f"{dot} <b>{_e(k.name)}</b> (<code>••••{_e(k.key_last4)}</code>): "
+            f"<b>{today_k:,}</b> today · <b>{k.total_requests:,}</b> total · {sr_k}% ok"
+        )
+    key_block = "\n\n<b>🔑 Usage by API Key</b>\n" + "\n".join(key_lines) if key_lines else ""
+
     return (
         f"<b>📊 Quota &amp; Live Telemetry</b>\n"
         f"Plan: <b>{_e(plan.name if plan else 'Unknown')}</b> ({days_left}d left)\n\n"
@@ -732,7 +758,131 @@ def _format_quota_card(db: Session, user: User, brand: Dict[str, str]) -> str:
         f"Used: <b>{sub.cycle_requests_used:,}</b> / {plan.monthly_request_limit:,}\n\n"
         f"⚡ Rate Cap: <b>{plan.rate_limit_per_minute if plan else 0} req/min</b>\n"
         f"✅ Health: <b>{rate}%</b> ({total_calls:,} calls · {round(float(avg_lat), 1)} ms avg)"
+        f"{key_block}"
     )
+
+
+def _format_all_keys_usage_card(db: Session, user: User, brand: Dict[str, str]) -> Tuple[str, Dict[str, Any]]:
+    sub = get_active_subscription(db, user.id)
+    plan = db.get(SubscriptionPlan, sub.plan_id) if sub else None
+    keys = list_user_keys(db, user.id)
+    usage_map = get_user_keys_usage_map(db, user.id)
+
+    lines = [f"<b>📈 API Key Usage Analytics — {_e(brand['app_name'])}</b>"]
+    if plan and sub:
+        today_str = utc_now().strftime("%Y-%m-%d")
+        daily_used = sub.daily_requests_used if sub.daily_usage_date == today_str else 0
+        lines.append(
+            f"Active Plan: <b>{_e(plan.name)}</b> · {daily_used:,}/{plan.daily_request_limit:,} calls today\n"
+        )
+
+    total_sum = sum(k.total_requests for k in keys) or 1
+    kb_rows: List[List[Dict[str, Any]]] = []
+
+    if not keys:
+        lines.append("\nNo API keys found yet. Tap <b>🔑 API Keys</b> to generate one.")
+    else:
+        for k in keys[:6]:
+            u = usage_map.get(k.id, {})
+            today_k = int(u.get("today_requests", 0))
+            ok_k = int(u.get("success_requests", 0))
+            err_k = int(u.get("error_requests", 0))
+            lim_k = int(u.get("rate_limited_requests", 0))
+            sr_k = u.get("success_rate", 100.0)
+            lat_k = u.get("avg_latency_ms", 0.0)
+            last_used_str = k.last_used_at.strftime("%d %b %H:%M UTC") if k.last_used_at else "Never"
+            dot = "🟢" if k.status == "active" else "🔴"
+            lines.append(
+                f"{dot} <b>{_e(k.name)}</b> (<code>{_e(k.key_prefix)}••••{_e(k.key_last4)}</code>)\n"
+                f"   <code>{_progress_bar(k.total_requests, total_sum, 10)}</code> share\n"
+                f"   Today: <b>{today_k:,}</b> · Total: <b>{k.total_requests:,}</b> · Health: <b>{sr_k}%</b> ({ok_k} ok / {err_k} err / {lim_k} 429)\n"
+                f"   Latency: <b>{lat_k} ms</b> · Last used: <code>{_e(last_used_str)}</code>"
+            )
+            kb_rows.append(
+                [
+                    ikb_button(f"📊 {k.name[:16]} ({k.key_last4}) Stats", callback_data=f"k:usg:{k.id}", style=ButtonStyle.PRIMARY),
+                    ikb_button("🧪 Ping", callback_data=f"k:tst:{k.id}", style=ButtonStyle.SUCCESS),
+                ]
+            )
+
+    kb_rows.append(
+        [
+            ikb_button("↻ Refresh", callback_data="m:kusage", style=ButtonStyle.PRIMARY),
+            ikb_button("🔑 Keys Vault", callback_data="m:keys", style=ButtonStyle.SUCCESS),
+            ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT),
+        ]
+    )
+    return "\n".join(lines), ikb_markup(kb_rows)
+
+
+def _format_single_key_usage_card(
+    db: Session,
+    user: User,
+    key: ApiKey,
+    bot: TelegramBot,
+) -> Tuple[str, Dict[str, Any]]:
+    sub = db.get(Subscription, key.subscription_id)
+    plan = db.get(SubscriptionPlan, sub.plan_id) if sub else None
+    detail = get_single_key_usage_detail(db, key, recent_limit=5)
+    last_used = key.last_used_at.strftime("%d %b %Y %H:%M UTC") if key.last_used_at else "Never used"
+    created_on = key.created_at.strftime("%d %b %Y")
+    dot = "🟢 Active" if key.status == "active" else "🔴 Revoked"
+
+    lines = [
+        f"<b>📊 API Key Usage Details</b>",
+        f"Key: <b>{_e(key.name)}</b> ({dot})",
+        f"Secret: <code>{_e(key.key_prefix)}••••••••{_e(key.key_last4)}</code>",
+        f"Plan: <b>{_e(plan.name if plan else 'Unknown')}</b> · Created {created_on}",
+        f"Last Used: <code>{_e(last_used)}</code>",
+        "",
+        f"<b>Today (UTC):</b> {detail['today_requests']:,} requests",
+    ]
+    if plan:
+        lines.append(f"<code>{_progress_bar(detail['today_requests'], plan.daily_request_limit)}</code> vs daily cap")
+    lines.extend(
+        [
+            f"<b>Total Requests:</b> {detail['total_requests']:,} ({detail['success_requests']:,} ok · {detail['error_requests']:,} err · {detail['rate_limited_requests']:,} 429)",
+            f"<b>Success Rate:</b> {detail['success_rate']}% · <b>Avg Latency:</b> {detail['avg_latency_ms']} ms",
+        ]
+    )
+
+    if detail["top_endpoints"]:
+        lines.append("\n<b>Top Endpoints Called:</b>")
+        for ep in detail["top_endpoints"]:
+            lines.append(
+                f"• <code>{_e(ep['method'])} {_e(ep['path'])}</code> — <b>{ep['hits']:,}</b> hits ({ep['avg_latency_ms']} ms)"
+            )
+
+    if detail["recent_logs"]:
+        lines.append("\n<b>Recent Calls with this Key:</b>")
+        for entry in detail["recent_logs"]:
+            mark = "✅" if entry["status_code"] < 400 else "⚠️" if entry["status_code"] == 429 else "❌"
+            lines.append(
+                f"{mark} <code>{_e(entry['method'])} {_e(entry['path'])}</code> → <b>{entry['status_code']}</b> ({entry['latency_ms']} ms)"
+            )
+
+    rows: List[List[Dict[str, Any]]] = []
+    if key.status == "active":
+        rows.append(
+            [
+                ikb_button("🧪 Test GET /v1/status", callback_data=f"k:tst:{key.id}", style=ButtonStyle.SUCCESS),
+                ikb_button("↻ Refresh Stats", callback_data=f"k:usg:{key.id}", style=ButtonStyle.PRIMARY),
+            ]
+        )
+        rows.append(
+            [
+                ikb_button("👁 Reveal", callback_data=f"k:rev:{key.id}", style=ButtonStyle.SUCCESS),
+                ikb_button("🔄 Rotate", callback_data=f"k:rga:{key.id}", style=ButtonStyle.PRIMARY),
+                ikb_button("🗑 Revoke", callback_data=f"k:rva:{key.id}", style=ButtonStyle.DANGER),
+            ]
+        )
+    rows.append(
+        [
+            ikb_button("📈 All Key Stats", callback_data="m:kusage", style=ButtonStyle.PRIMARY),
+            ikb_button("« Keys Vault", callback_data="m:keys", style=ButtonStyle.DEFAULT),
+        ]
+    )
+    return "\n".join(lines), ikb_markup(rows)
 
 
 def _format_keys_card(
@@ -746,6 +896,7 @@ def _format_keys_card(
     plan = db.get(SubscriptionPlan, sub.plan_id) if sub else None
     keys = list_user_keys(db, user.id)
     active_keys = [k for k in keys if k.status == "active"]
+    usage_map = get_user_keys_usage_map(db, user.id)
 
     lines = ["<b>🔑 API Keys Vault</b>"]
     if notice:
@@ -755,34 +906,40 @@ def _format_keys_card(
     else:
         lines.append("Plan: <b>None</b> — create a key below to activate Free Sandbox if eligible.")
 
-    kb_rows: List[List[Dict[str, str]]] = []
+    kb_rows: List[List[Dict[str, Any]]] = []
     if not keys:
         lines.append("\nNo API keys issued yet.")
     else:
         lines.append("")
         for k in keys[:6]:
+            u = usage_map.get(k.id, {})
+            today_k = int(u.get("today_requests", 0))
+            sr_k = u.get("success_rate", 100.0)
+            lat_k = u.get("avg_latency_ms", 0.0)
             dot = "🟢" if k.status == "active" else "🔴"
             selected_tag = " ⭐" if bot.api_key_id == k.id else ""
             lines.append(
                 f"{dot} <b>{_e(k.name)}</b>{_e(selected_tag)}\n"
-                f"   <code>{_e(k.key_prefix)}••••{_e(k.key_last4)}</code> · {k.total_requests:,} calls"
+                f"   <code>{_e(k.key_prefix)}••••{_e(k.key_last4)}</code> · <b>{today_k:,}</b> today · <b>{k.total_requests:,}</b> total · {sr_k}% ok ({lat_k}ms)"
             )
             if k.status == "active":
                 row = [
-                    {"text": f"👁 Reveal {k.key_last4}", "callback_data": f"k:rev:{k.id}"},
-                    {"text": f"🔄 Rotate", "callback_data": f"k:rga:{k.id}"},
-                    {"text": f"🗑 Revoke", "callback_data": f"k:rva:{k.id}"},
+                    ikb_button("📊 Usage", callback_data=f"k:usg:{k.id}", style=ButtonStyle.PRIMARY),
+                    ikb_button(f"👁 Reveal", callback_data=f"k:rev:{k.id}", style=ButtonStyle.SUCCESS),
+                    ikb_button("🔄 Rotate", callback_data=f"k:rga:{k.id}", style=ButtonStyle.PRIMARY),
+                    ikb_button("🗑 Revoke", callback_data=f"k:rva:{k.id}", style=ButtonStyle.DANGER),
                 ]
                 if not bot.is_platform_bot and bot.api_key_id != k.id:
-                    row.insert(0, {"text": "⭐ Bind", "callback_data": f"k:use:{k.id}"})
+                    kb_rows.append([ikb_button(f"⭐ Bind {k.name[:18]} to @{bot.bot_username}", callback_data=f"k:use:{k.id}", style=ButtonStyle.SUCCESS)])
                 kb_rows.append(row)
 
-    actions_row: List[Dict[str, str]] = []
+    actions_row: List[Dict[str, Any]] = []
     if not sub or (plan and len(active_keys) < plan.max_api_keys):
-        actions_row.append({"text": "➕ Create New Key", "callback_data": "k:new"})
-    actions_row.append({"text": "« Menu", "callback_data": "m:home"})
+        actions_row.append(ikb_button("➕ Create New Key", callback_data="k:new", style=ButtonStyle.SUCCESS))
+    actions_row.append(ikb_button("📈 All Usage", callback_data="m:kusage", style=ButtonStyle.PRIMARY))
+    actions_row.append(ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT))
     kb_rows.append(actions_row)
-    return "\n".join(lines), {"inline_keyboard": kb_rows}
+    return "\n".join(lines), ikb_markup(kb_rows)
 
 
 def _format_alerts_card(
@@ -797,22 +954,38 @@ def _format_alerts_card(
             f"• Razorpay Billing Alerts: <b>{'ON ✅' if link.notify_payment_alerts else 'OFF ⏸'}</b>\n"
             f"• Gateway 5xx Errors: <b>{'ON ✅' if link.notify_gateway_errors else 'OFF ⏸'}</b>"
         )
-        kb = {
-            "inline_keyboard": [
+        kb = ikb_markup(
+            [
                 [
-                    {"text": f"Quota: {'ON' if link.notify_quota_alerts else 'OFF'}", "callback_data": "a:tog:q"},
-                    {"text": f"Security: {'ON' if link.notify_security_alerts else 'OFF'}", "callback_data": "a:tog:s"},
+                    ikb_button(
+                        f"Quota: {'ON' if link.notify_quota_alerts else 'OFF'}",
+                        callback_data="a:tog:q",
+                        style=ButtonStyle.SUCCESS if link.notify_quota_alerts else ButtonStyle.DANGER,
+                    ),
+                    ikb_button(
+                        f"Security: {'ON' if link.notify_security_alerts else 'OFF'}",
+                        callback_data="a:tog:s",
+                        style=ButtonStyle.SUCCESS if link.notify_security_alerts else ButtonStyle.DANGER,
+                    ),
                 ],
                 [
-                    {"text": f"Billing: {'ON' if link.notify_payment_alerts else 'OFF'}", "callback_data": "a:tog:p"},
-                    {"text": f"5xx Errors: {'ON' if link.notify_gateway_errors else 'OFF'}", "callback_data": "a:tog:e"},
+                    ikb_button(
+                        f"Billing: {'ON' if link.notify_payment_alerts else 'OFF'}",
+                        callback_data="a:tog:p",
+                        style=ButtonStyle.SUCCESS if link.notify_payment_alerts else ButtonStyle.DANGER,
+                    ),
+                    ikb_button(
+                        f"5xx Errors: {'ON' if link.notify_gateway_errors else 'OFF'}",
+                        callback_data="a:tog:e",
+                        style=ButtonStyle.SUCCESS if link.notify_gateway_errors else ButtonStyle.DANGER,
+                    ),
                 ],
                 [
-                    {"text": "🔔 Send Test Alert", "callback_data": "a:test"},
-                    {"text": "« Menu", "callback_data": "m:home"},
+                    ikb_button("🔔 Send Test Alert", callback_data="a:test", style=ButtonStyle.PRIMARY),
+                    ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT),
                 ],
             ]
-        }
+        )
         return text, kb
 
     text = (
@@ -821,15 +994,19 @@ def _format_alerts_card(
         f"<b>{'ON ✅' if bot.notify_owner_alerts else 'OFF ⏸'}</b>\n"
         f"Paired Owner: <b>{'Yes (' + _e(bot.paired_telegram_username or bot.paired_telegram_user_id) + ')' if bot.paired_telegram_user_id else 'Not paired'}</b>"
     )
-    kb = {
-        "inline_keyboard": [
+    kb = ikb_markup(
+        [
             [
-                {"text": f"Owner Alerts: {'ON ✅' if bot.notify_owner_alerts else 'OFF ⏸'}", "callback_data": "a:tog:o"},
-                {"text": "🔔 Send Test Alert", "callback_data": "a:test"},
+                ikb_button(
+                    f"Owner Alerts: {'ON ✅' if bot.notify_owner_alerts else 'OFF ⏸'}",
+                    callback_data="a:tog:o",
+                    style=ButtonStyle.SUCCESS if bot.notify_owner_alerts else ButtonStyle.DANGER,
+                ),
+                ikb_button("🔔 Send Test Alert", callback_data="a:test", style=ButtonStyle.PRIMARY),
             ],
-            [{"text": "« Menu", "callback_data": "m:home"}],
+            [ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT)],
         ]
-    }
+    )
     return text, kb
 
 
@@ -845,6 +1022,7 @@ async def _reply_with_gateway_call(
     query_dict: Optional[Dict[str, str]] = None,
     body_obj: Optional[Any] = None,
     edit_message_id: Optional[int] = None,
+    override_key_id: Optional[str] = None,
 ) -> Tuple[str, str]:
     status_code, resp_headers, pretty_body = await _run_gateway_for_bot(
         db,
@@ -854,6 +1032,7 @@ async def _reply_with_gateway_call(
         path=path,
         query_dict=query_dict,
         body_obj=body_obj,
+        override_key_id=override_key_id,
     )
     badge = "✅" if status_code < 400 else "⚠️" if status_code == 429 else "❌"
     mode = resp_headers.get("X-Gateway-Mode") or resp_headers.get("x-gateway-mode") or "gateway"
@@ -865,14 +1044,11 @@ async def _reply_with_gateway_call(
         f"{quota_line}\n\n"
         f"<pre>{_e(snippet)}</pre>"
     )
-    kb = {
-        "inline_keyboard": [
-            [
-                {"text": "🔄 Re-run Tools", "callback_data": "m:tools"},
-                {"text": "« Menu", "callback_data": "m:home"},
-            ]
-        ]
-    }
+    back_row = [ikb_button("🔄 Quick Tools", callback_data="m:tools", style=ButtonStyle.PRIMARY)]
+    if override_key_id:
+        back_row.append(ikb_button("📊 Key Usage", callback_data=f"k:usg:{override_key_id}", style=ButtonStyle.SUCCESS))
+    back_row.append(ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT))
+    kb = ikb_markup([back_row])
     if edit_message_id:
         await responder.edit_or_send(chat_id, edit_message_id, msg, reply_markup=kb)
     else:
@@ -900,10 +1076,11 @@ def _format_help_text(bot: TelegramBot, brand: Dict[str, str], is_privileged: bo
         lines.extend(
             [
                 "",
-                "<b>Account &amp; Key Management:</b>",
-                "• <code>/menu</code> — Interactive inline dashboard",
-                "• <code>/quota</code> — Daily &amp; monthly quota meters",
+                "<b>Account, Key Usage &amp; Management:</b>",
+                "• <code>/menu</code> — Interactive coloured button dashboard",
+                "• <code>/quota</code> — Daily, monthly &amp; per-key quota meters",
                 "• <code>/keys</code> — Manage, create, reveal &amp; rotate API keys",
+                "• <code>/keyusage [name|last4]</code> — Per-key calls, health &amp; top endpoints",
                 "• <code>/logs</code> — Latest gateway request telemetry",
                 "• <code>/alerts</code> — Toggle push alerts",
                 "• <code>/profile</code> — Account &amp; subscription status",
@@ -939,10 +1116,10 @@ def _format_plans_card(db: Session, brand: Dict[str, str], frontend_url: str) ->
             f"<b>{_e(p.name)}</b>{_e(badge)} — <b>{_e(price)}</b> / {p.billing_cycle_days}d\n"
             f"   • {p.daily_request_limit:,}/day · {p.monthly_request_limit:,}/cycle · {p.rate_limit_per_minute}/min · {p.max_api_keys} keys"
         )
-    rows: List[List[Dict[str, str]]] = [[{"text": "« Menu", "callback_data": "m:home"}]]
+    rows: List[List[Dict[str, Any]]] = [[ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT)]]
     if frontend_url and frontend_url.startswith("http"):
-        rows[0].insert(0, {"text": "🚀 Upgrade on Website", "url": f"{frontend_url.rstrip('/')}/#dashboard"})
-    return "\n".join(lines), {"inline_keyboard": rows}
+        rows[0].insert(0, ikb_button("🚀 Upgrade on Website", url=f"{frontend_url.rstrip('/')}/#dashboard", style=ButtonStyle.SUCCESS))
+    return "\n".join(lines), ikb_markup(rows)
 
 
 def _create_or_activate_key_from_bot(db: Session, user: User) -> str:
@@ -1415,7 +1592,7 @@ async def _handle_callback(
             chat_id,
             message_id,
             _format_help_text(bot, brand, is_privileged),
-            reply_markup={"inline_keyboard": [[{"text": "« Menu", "callback_data": "m:home"}]]},
+            reply_markup=ikb_markup([[ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT)]]),
         )
         return "ok", "menu:help"
 
@@ -1425,22 +1602,22 @@ async def _handle_callback(
         return "ok", "menu:plans"
 
     if data == "m:tools":
-        tools_kb = {
-            "inline_keyboard": [
+        tools_kb = ikb_markup(
+            [
                 [
-                    {"text": "🟢 GET /v1/status", "callback_data": "t:status"},
-                    {"text": "🆔 GET /v1/crypto/uuid", "callback_data": "t:uuid"},
+                    ikb_button("🟢 GET /v1/status", callback_data="t:status", style=ButtonStyle.SUCCESS),
+                    ikb_button("🆔 GET /v1/crypto/uuid", callback_data="t:uuid", style=ButtonStyle.PRIMARY),
                 ],
                 [
-                    {"text": "🕒 GET /v1/utils/timestamp", "callback_data": "t:time"},
-                    {"text": "🌐 IP 8.8.8.8", "callback_data": "t:ip8"},
+                    ikb_button("🕒 GET /v1/utils/timestamp", callback_data="t:time", style=ButtonStyle.PRIMARY),
+                    ikb_button("🌐 IP 8.8.8.8", callback_data="t:ip8", style=ButtonStyle.DEFAULT),
                 ],
                 [
-                    {"text": "📡 DNS example.com", "callback_data": "t:dns"},
-                    {"text": "« Menu", "callback_data": "m:home"},
+                    ikb_button("📡 DNS example.com", callback_data="t:dns", style=ButtonStyle.DEFAULT),
+                    ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT),
                 ],
             ]
-        }
+        )
         await responder.edit_or_send(
             chat_id,
             message_id,
@@ -1462,9 +1639,25 @@ async def _handle_callback(
             chat_id,
             message_id,
             _format_quota_card(db, actor_user, brand),
-            reply_markup={"inline_keyboard": [[{"text": "↻ Refresh", "callback_data": "m:quota"}, {"text": "« Menu", "callback_data": "m:home"}]]},
+            reply_markup=ikb_markup(
+                [
+                    [
+                        ikb_button("📈 Usage by Key", callback_data="m:kusage", style=ButtonStyle.PRIMARY),
+                        ikb_button("🔑 API Keys", callback_data="m:keys", style=ButtonStyle.SUCCESS),
+                    ],
+                    [
+                        ikb_button("↻ Refresh", callback_data="m:quota", style=ButtonStyle.PRIMARY),
+                        ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT),
+                    ],
+                ]
+            ),
         )
         return "ok", "menu:quota"
+
+    if data == "m:kusage":
+        text, kb = _format_all_keys_usage_card(db, actor_user, brand)
+        await responder.edit_or_send(chat_id, message_id, text, reply_markup=kb)
+        return "ok", "menu:keyusage"
 
     if data == "m:prof":
         sub = get_active_subscription(db, actor_user.id)
@@ -1481,7 +1674,7 @@ async def _handle_callback(
             chat_id,
             message_id,
             text,
-            reply_markup={"inline_keyboard": [[{"text": "« Menu", "callback_data": "m:home"}]]},
+            reply_markup=ikb_markup([[ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT)]]),
         )
         return "ok", "menu:profile"
 
@@ -1506,7 +1699,15 @@ async def _handle_callback(
             chat_id,
             message_id,
             text,
-            reply_markup={"inline_keyboard": [[{"text": "↻ Refresh", "callback_data": "m:logs"}, {"text": "« Menu", "callback_data": "m:home"}]]},
+            reply_markup=ikb_markup(
+                [
+                    [
+                        ikb_button("↻ Refresh", callback_data="m:logs", style=ButtonStyle.PRIMARY),
+                        ikb_button("📈 Usage by Key", callback_data="m:kusage", style=ButtonStyle.SUCCESS),
+                        ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT),
+                    ]
+                ]
+            ),
         )
         return "ok", "menu:logs"
 
@@ -1520,9 +1721,33 @@ async def _handle_callback(
         await responder.send(
             chat_id,
             msg,
-            reply_markup={"inline_keyboard": [[{"text": "🔑 Back to API Keys", "callback_data": "m:keys"}]]},
+            reply_markup=ikb_markup([[ikb_button("🔑 Back to API Keys", callback_data="m:keys", style=ButtonStyle.PRIMARY)]]),
         )
         return "ok", "key:create"
+
+    if data.startswith("k:usg:"):
+        kid = data[6:]
+        key = db.get(ApiKey, kid)
+        if not key or key.user_id != actor_user.id:
+            await responder.send(chat_id, "❌ Key not found.")
+            return "error", f"key:usage_not_found:{kid}"
+        text, kb = _format_single_key_usage_card(db, actor_user, key, bot)
+        await responder.edit_or_send(chat_id, message_id, text, reply_markup=kb)
+        return "ok", f"key:usage:{kid}"
+
+    if data.startswith("k:tst:"):
+        kid = data[6:]
+        return await _reply_with_gateway_call(
+            db,
+            responder,
+            bot,
+            actor_user,
+            chat_id,
+            method="GET",
+            path="/v1/status",
+            edit_message_id=message_id,
+            override_key_id=kid,
+        )
 
     if data.startswith("k:use:"):
         kid = data[6:]
@@ -1558,14 +1783,14 @@ async def _handle_callback(
             chat_id,
             message_id,
             f"⚠️ <b>Regenerate Key {_e(key.name)}?</b>\nYour old secret (<code>••••{_e(key.key_last4)}</code>) will stop working immediately.",
-            reply_markup={
-                "inline_keyboard": [
+            reply_markup=ikb_markup(
+                [
                     [
-                        {"text": "✅ Confirm Rotate", "callback_data": f"k:rgc:{kid}"},
-                        {"text": "Cancel", "callback_data": "m:keys"},
+                        ikb_button("✅ Confirm Rotate", callback_data=f"k:rgc:{kid}", style=ButtonStyle.SUCCESS),
+                        ikb_button("Cancel", callback_data="m:keys", style=ButtonStyle.DEFAULT),
                     ]
                 ]
-            },
+            ),
         )
         return "ok", f"key:regen_confirm:{kid}"
 
@@ -1579,7 +1804,7 @@ async def _handle_callback(
         await responder.send(
             chat_id,
             f"🔄 <b>Key Rotated!</b>\nNew secret for <b>{_e(key.name)}</b>:\n<tg-spoiler><code>{_e(new_raw)}</code></tg-spoiler>",
-            reply_markup={"inline_keyboard": [[{"text": "🔑 API Keys", "callback_data": "m:keys"}]]},
+            reply_markup=ikb_markup([[ikb_button("🔑 API Keys", callback_data="m:keys", style=ButtonStyle.PRIMARY)]]),
         )
         return "ok", f"key:regenerated:{kid}"
 
@@ -1593,14 +1818,14 @@ async def _handle_callback(
             chat_id,
             message_id,
             f"🗑 <b>Revoke Key {_e(key.name)}?</b>\nApplications using <code>••••{_e(key.key_last4)}</code> will immediately receive 403 KEY_REVOKED.",
-            reply_markup={
-                "inline_keyboard": [
+            reply_markup=ikb_markup(
+                [
                     [
-                        {"text": "🛑 Confirm Revoke", "callback_data": f"k:rvc:{kid}"},
-                        {"text": "Cancel", "callback_data": "m:keys"},
+                        ikb_button("🛑 Confirm Revoke", callback_data=f"k:rvc:{kid}", style=ButtonStyle.DANGER),
+                        ikb_button("Cancel", callback_data="m:keys", style=ButtonStyle.DEFAULT),
                     ]
                 ]
-            },
+            ),
         )
         return "ok", f"key:revoke_confirm:{kid}"
 
@@ -1720,7 +1945,7 @@ async def _handle_text_or_command(
         await responder.send(
             chat_id,
             _format_help_text(bot, brand, is_privileged),
-            reply_markup={"inline_keyboard": [[{"text": "« Open Menu", "callback_data": "m:home"}]]},
+            reply_markup=ikb_markup([[ikb_button("« Open Menu", callback_data="m:home", style=ButtonStyle.PRIMARY)]]),
         )
         return "ok", "help"
 
@@ -1873,9 +2098,37 @@ async def _handle_text_or_command(
         await responder.send(
             chat_id,
             _format_quota_card(db, actor_user, brand),
-            reply_markup={"inline_keyboard": [[{"text": "🔑 Manage Keys", "callback_data": "m:keys"}, {"text": "« Menu", "callback_data": "m:home"}]]},
+            reply_markup=ikb_markup(
+                [
+                    [
+                        ikb_button("📈 Detailed Key Usage", callback_data="m:kusage", style=ButtonStyle.PRIMARY),
+                        ikb_button("🔑 Manage Keys", callback_data="m:keys", style=ButtonStyle.SUCCESS),
+                    ],
+                    [ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT)],
+                ]
+            ),
         )
         return "ok", "quota"
+
+    if cmd == "/keyusage":
+        user_keys = list_user_keys(db, actor_user.id)
+        if arg:
+            q_lower = arg.strip().lower()
+            matched = next(
+                (k for k in user_keys if q_lower in k.name.lower() or k.key_last4.lower() == q_lower),
+                None,
+            )
+            if matched:
+                text, kb = _format_single_key_usage_card(db, actor_user, matched, bot)
+                await responder.send(chat_id, text, reply_markup=kb)
+                return "ok", f"keyusage:{matched.id}"
+            await responder.send(
+                chat_id,
+                f"❌ No API key matching <code>{_e(arg)}</code>. Showing all keys:",
+            )
+        text, kb = _format_all_keys_usage_card(db, actor_user, brand)
+        await responder.send(chat_id, text, reply_markup=kb)
+        return "ok", "keyusage"
 
     if cmd == "/keys":
         text, kb = _format_keys_card(db, actor_user, bot)
@@ -1898,7 +2151,18 @@ async def _handle_text_or_command(
                 lines.append(
                     f"{mark} <code>{_e(entry.method)} {_e(entry.path)}</code> → <b>{entry.status_code}</b> ({round(entry.latency_ms, 1)}ms)"
                 )
-            await responder.send(chat_id, "\n".join(lines), reply_markup={"inline_keyboard": [[{"text": "« Menu", "callback_data": "m:home"}]]})
+            await responder.send(
+                chat_id,
+                "\n".join(lines),
+                reply_markup=ikb_markup(
+                    [
+                        [
+                            ikb_button("📈 Key Usage", callback_data="m:kusage", style=ButtonStyle.PRIMARY),
+                            ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT),
+                        ]
+                    ]
+                ),
+            )
         return "ok", "logs"
 
     if cmd == "/profile":
@@ -1910,7 +2174,7 @@ async def _handle_text_or_command(
             f"Email: <code>{_e(actor_user.email)}</code>\n"
             f"Role: <b>{_e(actor_user.role.upper())}</b>\n"
             f"Plan: <b>{_e(plan.name if plan else 'No active plan')}</b>",
-            reply_markup={"inline_keyboard": [[{"text": "« Menu", "callback_data": "m:home"}]]},
+            reply_markup=ikb_markup([[ikb_button("« Menu", callback_data="m:home", style=ButtonStyle.DEFAULT)]]),
         )
         return "ok", "profile"
 

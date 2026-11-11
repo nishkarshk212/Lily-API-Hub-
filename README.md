@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy" />
   <img src="https://img.shields.io/badge/Razorpay-HMAC--SHA256-072654?style=for-the-badge&logo=razorpay&logoColor=3395FF" alt="Razorpay" />
   <img src="https://img.shields.io/badge/OAuth%202.0-Google-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google OAuth" />
-  <img src="https://img.shields.io/badge/Pytest-16%2F16%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 16/16 Passing" />
+  <img src="https://img.shields.io/badge/Pytest-17%2F17%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 17/17 Passing" />
 </p>
 
 <!-- Interactive Quick Navigation Bar -->
@@ -284,7 +284,7 @@ Production blueprints are included out of the box—see [**`DEPLOYMENT_GUIDE.md`
 ## 🧪 Testing & Repository Layout
 
 <details>
-<summary><b>🧪 Click to view Test Coverage (16/16 Passing) &amp; Two-Part Project Structure</b></summary>
+<summary><b>🧪 Click to view Test Coverage (17/17 Passing) &amp; Two-Part Project Structure</b></summary>
 
 Run the full automated suite from `backend/`:
 ```bash
@@ -299,7 +299,7 @@ pytest -v
 | [`backend/tests/test_gateway_quotas.py`](./backend/tests/test_gateway_quotas.py) | Key reveal/rotate/revoke, max-key caps, built-in endpoints, rate limits, expiry & Master proxy injection |
 | [`backend/tests/test_razorpay.py`](./backend/tests/test_razorpay.py) | Razorpay order creation, HMAC verification, webhook idempotency, cancellation & reconciliation |
 | [`backend/tests/test_admin.py`](./backend/tests/test_admin.py) | Admin RBAC isolation, user suspension, plan CRUD, Vercel fallback, cross-origin Bearer auth & live branding |
-| [`backend/tests/test_telegram.py`](./backend/tests/test_telegram.py) | @BotFather bot onboarding, HTTPS webhook verification, owner pairing, inline commands, polling, broadcasts & quota/security alerts |
+| [`backend/tests/test_telegram.py`](./backend/tests/test_telegram.py) | @BotFather onboarding, coloured `ButtonStyle` menus, per-key usage analytics, webhooks, polling & alerts |
 
 ```text
 .
@@ -319,7 +319,7 @@ pytest -v
 │   │   ├── schemas/                 # Pydantic v2 validation schemas
 │   │   └── services/                # Auth, Branding, Key minting, Gateway proxy, Razorpay & Telegram engine
 │   ├── telegram_bot_worker.py       # Optional standalone long-polling CLI worker
-│   ├── tests/                       # 16 end-to-end automated integration tests
+│   ├── tests/                       # 17 end-to-end automated integration tests
 │   ├── Dockerfile · .dockerignore · railway.toml
 │   └── requirements.txt · pyproject.toml · .env.example
 ├── docs/assets/                     # Custom animated SVG banners & architecture visuals
