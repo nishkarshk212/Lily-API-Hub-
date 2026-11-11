@@ -53,7 +53,7 @@ export function openConfirmModal({ title, message, confirmLabel = "Confirm", dan
 
 export function openAuthModal({
   mode = "login",
-  brand = { appName: "Lily API Hub", companyName: "Sonic Network" },
+  brand = { appName: "Beta API Hub", companyName: "Sonic Network" },
   googleEnabled = false,
   resetToken = "",
   onAuthSuccess,

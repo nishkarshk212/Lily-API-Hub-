@@ -134,7 +134,7 @@ class AdminBrandingUpdateRequest(BaseModel):
     brand_badge_letter: str = Field(default="", max_length=4)
     support_email: str = Field(min_length=3, max_length=255)
     site_description: str = Field(default="", max_length=500)
-    api_key_prefix_live: str = Field(default="lily_live_", min_length=2, max_length=24, pattern=r"^[a-zA-Z0-9_-]+$")
-    api_key_prefix_test: str = Field(default="lily_test_", min_length=2, max_length=24, pattern=r"^[a-zA-Z0-9_-]+$")
-    receipt_prefix: str = Field(default="LILY", min_length=2, max_length=16, pattern=r"^[a-zA-Z0-9_-]+$")
+    api_key_prefix_live: str = Field(default="beta_live_", min_length=2, max_length=24, pattern=r"^[a-zA-Z0-9_-]+$")
+    api_key_prefix_test: str = Field(default="beta_test_", min_length=2, max_length=24, pattern=r"^[a-zA-Z0-9_-]+$")
+    receipt_prefix: str = Field(default="BETA", min_length=2, max_length=16, pattern=r"^[a-zA-Z0-9_-]+$")
 

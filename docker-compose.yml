@@ -3,13 +3,13 @@ services:
     image: postgres:15-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: lily_hub
-      POSTGRES_USER: lily_user
+      POSTGRES_DB: ${POSTGRES_DB:-beta_hub}
+      POSTGRES_USER: ${POSTGRES_USER:-beta_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_pg_password}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lily_user -d lily_hub"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beta_user} -d ${POSTGRES_DB:-beta_hub}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -23,7 +23,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+psycopg://lily_user:${POSTGRES_PASSWORD:-change_me_pg_password}@db:5432/lily_hub
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-beta_user}:${POSTGRES_PASSWORD:-change_me_pg_password}@db:5432/${POSTGRES_DB:-beta_hub}
       APP_ENV: ${APP_ENV:-production}
     ports:
       - "${BACKEND_HTTP_PORT:-8000}:8000"

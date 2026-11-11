@@ -22,7 +22,7 @@ from app.core.security import (
 from app.models.gateway import AuditLog
 from app.models.user import EmailToken, User, UserSession
 
-SESSION_COOKIE_NAME = "lily_session"
+SESSION_COOKIE_NAME = "beta_session"
 
 
 def as_utc(dt: Optional[datetime]) -> Optional[datetime]:

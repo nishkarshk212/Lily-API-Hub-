@@ -11,7 +11,7 @@ from app.core.config import Settings, get_settings
 from app.models.gateway import EmailOutbox
 from app.services.branding_service import get_effective_branding
 
-logger = logging.getLogger("lily.email")
+logger = logging.getLogger("beta.email")
 
 
 def _wrap_email_html(

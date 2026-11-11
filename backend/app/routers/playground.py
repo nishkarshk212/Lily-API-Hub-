@@ -65,7 +65,7 @@ async def execute_playground_request(
 
     started = time.perf_counter()
     transport = httpx.ASGITransport(app=request.app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://lily-gateway.local") as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://beta-gateway.local") as client:
         resp = await client.request(
             method=payload.method,
             url=target_path,

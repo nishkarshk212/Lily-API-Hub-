@@ -30,7 +30,7 @@
         M0,74 C240,106 490,42 780,82 C980,108 1100,52 1200,74 L1200,120 L0,120 Z" />
     </path>
     <text x="600" y="54" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" letter-spacing="0.4">
-      Lily API Hub · Built with FastAPI, SQLAlchemy 2.0, Razorpay HMAC &amp; Vanilla ES6 Modules
+      Beta API Hub · Built with FastAPI, SQLAlchemy 2.0, Razorpay HMAC &amp; Vanilla ES6 Modules
     </text>
   </g>
 </svg>

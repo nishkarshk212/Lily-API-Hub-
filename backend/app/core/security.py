@@ -37,7 +37,7 @@ def sha256_hex(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def generate_api_key_secret(prefix: str = "lily_live_") -> str:
+def generate_api_key_secret(prefix: str = "beta_live_") -> str:
     # 32 bytes -> ~43 URL-safe chars; clear prefix + high entropy.
     return f"{prefix}{secrets.token_urlsafe(32)}"
 
@@ -69,7 +69,7 @@ def _derive_fernet_key(settings: Settings) -> bytes:
     dk = hashlib.pbkdf2_hmac(
         "sha256",
         settings.SECRET_KEY.encode("utf-8"),
-        b"lily-api-hub-fernet-v1",
+        b"beta-api-hub-fernet-v1",
         100_000,
         dklen=32,
     )

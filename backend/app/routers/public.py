@@ -79,14 +79,14 @@ BUILTIN_ENDPOINTS_CATALOG = [
         "title": "JSON Schema & Payload Validator",
         "description": "Validate JSON payloads and inspect object key counts and byte sizes.",
         "sample_query": {},
-        "sample_body": {"network": "Sonic", "hub": "Lily", "version": 2},
+        "sample_body": {"network": "Sonic", "hub": "Beta", "version": 2},
     },
 ]
 
 FAQS = [
     {
         "q": "How do customer API keys link to Sonic Network's Master Backend?",
-        "a": "Every purchased plan provisions a unique customer key (lily_live_...) linked to our Master Gateway profile. When your apps call our /v1/* endpoint URL, our gateway validates your key, enforces your exact rate limits and quotas, and securely proxies upstream using server-side master credentials that are never exposed.",
+        "a": "Every purchased plan provisions a unique customer key (beta_live_...) linked to our Master Gateway profile. When your apps call our /v1/* endpoint URL, our gateway validates your key, enforces your exact rate limits and quotas, and securely proxies upstream using server-side master credentials that are never exposed.",
     },
     {
         "q": "When is my API key activated after a Razorpay payment?",
@@ -108,7 +108,7 @@ FAQS = [
 
 TESTIMONIALS = [
     {
-        "quote": "Switching our analytics ingestion to Lily API Hub cut gateway latency under 18ms and gave our clients clean per-key quotas right out of the box.",
+        "quote": "Switching our analytics ingestion to Beta API Hub cut gateway latency under 18ms and gave our clients clean per-key quotas right out of the box.",
         "author": "Aarav Mehta",
         "role": "CTO, PulseGrid Telemetry",
     },

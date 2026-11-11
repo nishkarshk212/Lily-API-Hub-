@@ -17,9 +17,9 @@ from app.services.gateway_service import rate_limiter
 
 @pytest.fixture()
 def test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    db_file = tmp_path / "test_lily_hub.db"
+    db_file = tmp_path / "test_beta_hub.db"
     monkeypatch.setenv("APP_ENV", "development")
-    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-lily-api-hub-pytest-1234567890")
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-beta-api-hub-pytest-1234567890")
     monkeypatch.setenv("ENCRYPTION_KEY", "")
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_file}")
     monkeypatch.setenv("MASTER_API_KEY", "sn_master_ultra_secret_test_key_9988")
@@ -27,7 +27,7 @@ def test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("UPSTREAM_AUTH_HEADER", "Authorization")
     monkeypatch.setenv("UPSTREAM_AUTH_SCHEME", "Bearer")
     monkeypatch.setenv("GATEWAY_MODE", "hybrid")
-    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_lilyhub_123")
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_betahub_123")
     monkeypatch.setenv("RAZORPAY_KEY_SECRET", "rzp_test_secret_abc987")
     monkeypatch.setenv("RAZORPAY_WEBHOOK_SECRET", "rzp_webhook_secret_xyz654")
     monkeypatch.setenv("INITIAL_ADMIN_EMAIL", "admin@sonicnetwork.dev")

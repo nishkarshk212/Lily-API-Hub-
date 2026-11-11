@@ -62,7 +62,7 @@ async function refreshPublicData() {
   const [overview, plans] = await Promise.all([api.get("/api/public/overview"), api.get("/api/plans")]);
   state.overview = overview;
   state.plans = plans;
-  document.title = `${overview.brand || "Lily API Hub"} by ${overview.company || "Sonic Network"}`;
+  document.title = `${overview.brand || "Beta API Hub"} by ${overview.company || "Sonic Network"}`;
   const desc = document.querySelector('meta[name="description"]');
   if (desc && overview.site_description) desc.setAttribute("content", overview.site_description);
   const fav = document.querySelector('link[rel="icon"]');

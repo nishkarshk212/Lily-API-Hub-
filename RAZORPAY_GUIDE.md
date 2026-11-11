@@ -1,6 +1,6 @@
 # Razorpay Integration Guide — Test Mode & Live Mode
 
-Lily API Hub integrates the official Razorpay Orders API, Checkout SDK (`checkout.js`), HMAC-SHA256 server-side payment verification, idempotent webhooks, and payment reconciliation.
+Beta API Hub integrates the official Razorpay Orders API, Checkout SDK (`checkout.js`), HMAC-SHA256 server-side payment verification, idempotent webhooks, and payment reconciliation.
 
 ---
 
@@ -54,7 +54,7 @@ Lily API Hub integrates the official Razorpay Orders API, Checkout SDK (`checkou
    Enable `payment.captured`, `order.paid`, `payment.failed`, `refund.created`, and `payment.refunded`.
 5. Run one real ₹1 test plan or starter transaction and verify:
    - `PaymentOrder` transitions `pending` → `successful`
-   - Unique `lily_live_*` key is provisioned in Dashboard
+   - Unique `beta_live_*` key is provisioned in Dashboard
    - Printable Receipt opens cleanly
    - Webhook event appears in **Admin Portal → Payments & Webhooks**
 

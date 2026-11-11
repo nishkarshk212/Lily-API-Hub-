@@ -15,12 +15,12 @@ def normalize_database_url(url: str) -> str:
     cleaned = (url or "").strip()
     if os.getenv("VERCEL") == "1" and (not cleaned or cleaned.startswith("sqlite:///./")):
         # Vercel /var/task is read-only; fall back to writable /tmp when no external DB is configured.
-        return "sqlite:////tmp/lily_hub.db"
+        return "sqlite:////tmp/beta_hub.db"
     if cleaned.startswith("postgres://"):
         return "postgresql+psycopg://" + cleaned[len("postgres://"):]
     if cleaned.startswith("postgresql://"):
         return "postgresql+psycopg://" + cleaned[len("postgresql://"):]
-    return cleaned or "sqlite:///./lily_hub.db"
+    return cleaned or "sqlite:///./beta_hub.db"
 
 
 class Settings(BaseSettings):
@@ -31,14 +31,14 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
-    APP_NAME: str = "Lily API Hub"
+    APP_NAME: str = "Beta API Hub"
     COMPANY_NAME: str = "Sonic Network"
     BRAND_BADGE_LETTER: str = ""
     SUPPORT_EMAIL: str = "support@sonicnetwork.dev"
     SITE_META_DESCRIPTION: str = "Purchase API access plans, manage unique developer keys linked to a Master Gateway, test live endpoints, and scale seamlessly with Razorpay."
-    API_KEY_PREFIX_LIVE: str = "lily_live_"
-    API_KEY_PREFIX_TEST: str = "lily_test_"
-    RECEIPT_PREFIX: str = "LILY"
+    API_KEY_PREFIX_LIVE: str = "beta_live_"
+    API_KEY_PREFIX_TEST: str = "beta_test_"
+    RECEIPT_PREFIX: str = "BETA"
     APP_ENV: str = "development"
     APP_PUBLIC_URL: str = "http://localhost:8000"
     FRONTEND_URL: str = ""
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     SESSION_EXPIRE_HOURS: int = 168  # 7 days
 
-    DATABASE_URL: str = Field(default="sqlite:///./lily_hub.db", validate_default=True)
+    DATABASE_URL: str = Field(default="sqlite:///./beta_hub.db", validate_default=True)
 
     # Master / Upstream Gateway settings
     GATEWAY_MODE: str = "hybrid"  # builtin | proxy | hybrid

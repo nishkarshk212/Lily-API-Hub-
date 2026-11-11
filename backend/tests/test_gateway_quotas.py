@@ -33,7 +33,7 @@ def test_gateway_key_management_and_builtin_endpoints(client):
     assert client.get("/v1/status").status_code == 401
 
     # Invalid key -> 401
-    assert client.get("/v1/status", headers={"X-API-Key": "lily_live_invalid_key"}).status_code == 401
+    assert client.get("/v1/status", headers={"X-API-Key": "beta_live_invalid_key"}).status_code == 401
 
     # Valid key -> 200 + quota headers + master link tag (NEVER exposing raw MASTER_API_KEY)
     resp = client.get("/v1/status", headers={"X-API-Key": raw_key})
@@ -162,7 +162,7 @@ def test_upstream_master_proxy_injection(client, test_env, monkeypatch):
 def test_max_api_keys_limit_and_frontend_assets(client):
     # Check SPA & static assets load cleanly
     assert client.get("/").status_code == 200
-    assert "Lily API Hub" in client.get("/").text
+    assert "Beta API Hub" in client.get("/").text
     assert client.get("/favicon.svg").status_code == 200
     assert client.get("/favicon.ico").status_code == 200
     assert client.get("/css/tokens.css").status_code == 200

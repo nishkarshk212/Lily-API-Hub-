@@ -543,7 +543,7 @@ function renderMasterTab(masterCfg, brand) {
 
         <label style="display:flex;align-items:center;gap:8px;margin-bottom:18px;font-size:13.5px;cursor:pointer;">
           <input type="checkbox" id="mc-fwd-ctx" ${masterCfg.forward_user_context_headers !== false ? "checked" : ""} />
-          Forward non-sensitive customer context headers (<code>X-Lily-User-Id</code>, <code>X-Lily-Plan-Slug</code>, <code>X-Lily-Key-Id</code>)
+          Forward non-sensitive customer context headers (<code>X-Beta-User-Id</code>, <code>X-Beta-Plan-Slug</code>, <code>X-Beta-Key-Id</code>)
         </label>
 
         <button type="submit" class="btn btn-primary" id="mc-save-btn">Save Master Gateway Config</button>
@@ -572,7 +572,7 @@ function renderBrandingTab(b) {
 
       <div class="brand-preview-card">
         <div class="brand-preview-logo">
-          <div class="brand-preview-tile" id="br-prev-tile">${esc(b.brand_letter || "L")}</div>
+          <div class="brand-preview-tile" id="br-prev-tile">${esc(b.brand_letter || "B")}</div>
           <div>
             <div style="font-size:16px;font-weight:800;" id="br-prev-app">${esc(b.app_name)}</div>
             <div style="font-size:12px;color:#94a3b8;" id="br-prev-company">${esc(b.company_name)} · <span id="br-prev-email">${esc(b.support_email)}</span></div>
@@ -600,7 +600,7 @@ function renderBrandingTab(b) {
         <div class="two-col">
           <div class="field">
             <label>Badge / Favicon Letter (1 char)</label>
-            <input class="input mono" id="br-letter" maxlength="4" value="${esc(b.brand_letter || "")}" placeholder="L" />
+            <input class="input mono" id="br-letter" maxlength="4" value="${esc(b.brand_letter || "")}" placeholder="B" />
           </div>
           <div class="field">
             <label>Support Email (<code>SUPPORT_EMAIL</code>)</label>
@@ -611,15 +611,15 @@ function renderBrandingTab(b) {
         <div class="two-col" style="grid-template-columns:repeat(3,minmax(0,1fr));">
           <div class="field">
             <label>Live Key Prefix</label>
-            <input class="input mono" id="br-prefix-live" required pattern="^[a-zA-Z0-9_-]+$" value="${esc(b.api_key_prefix_live || "lily_live_")}" />
+            <input class="input mono" id="br-prefix-live" required pattern="^[a-zA-Z0-9_-]+$" value="${esc(b.api_key_prefix_live || "beta_live_")}" />
           </div>
           <div class="field">
             <label>Test Key Prefix</label>
-            <input class="input mono" id="br-prefix-test" required pattern="^[a-zA-Z0-9_-]+$" value="${esc(b.api_key_prefix_test || "lily_test_")}" />
+            <input class="input mono" id="br-prefix-test" required pattern="^[a-zA-Z0-9_-]+$" value="${esc(b.api_key_prefix_test || "beta_test_")}" />
           </div>
           <div class="field">
             <label>Receipt Code Prefix</label>
-            <input class="input mono" id="br-receipt-prefix" required pattern="^[a-zA-Z0-9_-]+$" value="${esc(b.receipt_prefix || "LILY")}" />
+            <input class="input mono" id="br-receipt-prefix" required pattern="^[a-zA-Z0-9_-]+$" value="${esc(b.receipt_prefix || "BETA")}" />
           </div>
         </div>
 

@@ -14,12 +14,12 @@ function buildSnippets(baseUrl, ep) {
   const jsonBody = hasBody ? JSON.stringify(ep.sample_body, null, 2) : "";
 
   const curl = hasBody
-    ? `curl -X ${ep.method} "${fullUrl}" \\\n  -H "X-API-Key: YOUR_LILY_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(ep.sample_body)}'`
-    : `curl -X ${ep.method} "${fullUrl}" \\\n  -H "X-API-Key: YOUR_LILY_API_KEY"`;
+    ? `curl -X ${ep.method} "${fullUrl}" \\\n  -H "X-API-Key: YOUR_BETA_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(ep.sample_body)}'`
+    : `curl -X ${ep.method} "${fullUrl}" \\\n  -H "X-API-Key: YOUR_BETA_API_KEY"`;
 
-  const python = `import requests\n\nresp = requests.${ep.method.toLowerCase()}(\n    "${fullUrl}",\n    headers={"X-API-Key": "YOUR_LILY_API_KEY"},${hasBody ? `\n    json=${jsonBody.replace(/true/g, "True").replace(/false/g, "False")},` : ""}\n    timeout=10,\n)\nprint(resp.status_code, resp.json())`;
+  const python = `import requests\n\nresp = requests.${ep.method.toLowerCase()}(\n    "${fullUrl}",\n    headers={"X-API-Key": "YOUR_BETA_API_KEY"},${hasBody ? `\n    json=${jsonBody.replace(/true/g, "True").replace(/false/g, "False")},` : ""}\n    timeout=10,\n)\nprint(resp.status_code, resp.json())`;
 
-  const javascript = `const res = await fetch("${fullUrl}", {\n  method: "${ep.method}",\n  headers: {\n    "X-API-Key": "YOUR_LILY_API_KEY",${hasBody ? `\n    "Content-Type": "application/json",` : ""}\n  },${hasBody ? `\n  body: JSON.stringify(${JSON.stringify(ep.sample_body)}),` : ""}\n});\nconst data = await res.json();\nconsole.log(res.status, data);`;
+  const javascript = `const res = await fetch("${fullUrl}", {\n  method: "${ep.method}",\n  headers: {\n    "X-API-Key": "YOUR_BETA_API_KEY",${hasBody ? `\n    "Content-Type": "application/json",` : ""}\n  },${hasBody ? `\n  body: JSON.stringify(${JSON.stringify(ep.sample_body)}),` : ""}\n});\nconst data = await res.json();\nconsole.log(res.status, data);`;
 
   return { curl, python, javascript };
 }
@@ -92,7 +92,7 @@ Authorization: Bearer ${esc(sampleDocsKey)}</pre>
                 <tr><td class="mono">X-RateLimit-Remaining</td><td>Remaining calls inside the current 60-second window</td></tr>
                 <tr><td class="mono">X-Quota-Daily-Remaining</td><td>Remaining daily requests before 00:00 UTC reset</td></tr>
                 <tr><td class="mono">X-Quota-Monthly-Remaining</td><td>Remaining requests in your active billing cycle</td></tr>
-                <tr><td class="mono">X-Lily-Plan</td><td>Active subscription plan slug applied to this request</td></tr>
+                <tr><td class="mono">X-Beta-Plan</td><td>Active subscription plan slug applied to this request</td></tr>
                 <tr><td class="mono">X-Gateway-Mode</td><td><code>builtin</code> or <code>proxy</code> (upstream master forwarding)</td></tr>
               </tbody>
             </table>

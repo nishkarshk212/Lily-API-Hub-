@@ -1,4 +1,4 @@
-"""FastAPI application entrypoint for Lily API Hub by Sonic Network."""
+"""FastAPI application entrypoint for Beta API Hub by Sonic Network."""
 
 from contextlib import asynccontextmanager
 import html
@@ -115,10 +115,10 @@ def create_app() -> FastAPI:
             brand_title = html.escape(f"{brand['app_name']} by {brand['company_name']} — API Gateway & Developer Platform")
             meta_desc = html.escape(brand["site_description"])
             rendered = raw_html.replace(
-                "Lily API Hub by Sonic Network — Enterprise API Gateway & Developer Platform",
+                "Beta API Hub by Sonic Network — Enterprise API Gateway & Developer Platform",
                 brand_title,
             ).replace(
-                "Initializing Lily API Hub...",
+                "Initializing Beta API Hub...",
                 f"Initializing {html.escape(brand['app_name'])}...",
             ).replace(
                 "Purchase high-throughput API access plans, manage isolated developer keys linked to Sonic Network's Master Gateway, test live endpoints, and scale seamlessly with Razorpay.",

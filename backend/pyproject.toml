@@ -1,7 +1,7 @@
 [project]
-name = "lily-api-hub"
+name = "beta-api-hub"
 version = "1.0.0"
-description = "Lily API Hub by Sonic Network — Commercial API Gateway, Subscription & Razorpay Billing Platform"
+description = "Beta API Hub by Sonic Network — Commercial API Gateway, Subscription & Razorpay Billing Platform"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

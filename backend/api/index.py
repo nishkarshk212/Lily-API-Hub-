@@ -1,4 +1,4 @@
-"""Vercel Serverless ASGI entrypoint for Lily API Hub."""
+"""Vercel Serverless ASGI entrypoint for Beta API Hub."""
 
 from app.main import app
 

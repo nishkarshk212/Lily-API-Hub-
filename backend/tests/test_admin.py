@@ -79,7 +79,7 @@ def test_database_url_normalization_and_vercel_entry():
 
     assert normalize_database_url("postgres://user:pass@host:5432/db") == "postgresql+psycopg://user:pass@host:5432/db"
     assert normalize_database_url("postgresql://user:pass@host:5432/db") == "postgresql+psycopg://user:pass@host:5432/db"
-    assert normalize_database_url("sqlite:///./lily_hub.db") == "sqlite:///./lily_hub.db"
+    assert normalize_database_url("sqlite:///./beta_hub.db") == "sqlite:///./beta_hub.db"
     assert vercel_app is not None
 
 
@@ -169,14 +169,14 @@ def test_vercel_readonly_cwd_fallback_and_healthz(tmp_path, monkeypatch):
     monkeypatch.setenv("VERCEL", "1")
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("SECRET_KEY", raising=False)
-    assert normalize_database_url("") == "sqlite:////tmp/lily_hub.db"
-    assert normalize_database_url("sqlite:///./lily_hub.db") == "sqlite:////tmp/lily_hub.db"
+    assert normalize_database_url("") == "sqlite:////tmp/beta_hub.db"
+    assert normalize_database_url("sqlite:///./beta_hub.db") == "sqlite:////tmp/beta_hub.db"
     assert (
         normalize_database_url("postgres://u:p@db.neon.tech:5432/neondb?sslmode=require")
         == "postgresql+psycopg://u:p@db.neon.tech:5432/neondb?sslmode=require"
     )
     vercel_cfg = Settings(_env_file=None)
-    assert vercel_cfg.DATABASE_URL == "sqlite:////tmp/lily_hub.db"
+    assert vercel_cfg.DATABASE_URL == "sqlite:////tmp/beta_hub.db"
     assert len(vercel_cfg.SECRET_KEY) >= 20
 
     with TestClient(vercel_app) as vc:

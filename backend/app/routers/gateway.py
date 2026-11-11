@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.services.gateway_service import handle_gateway_request
 
-router = APIRouter(tags=["Lily API Gateway (/v1)"])
+router = APIRouter(tags=["Beta API Gateway (/v1)"])
 
 
 @router.api_route("/v1/{subpath:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

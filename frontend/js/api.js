@@ -2,8 +2,8 @@
  * Core HTTP API client, cross-origin URL/token helpers, XSS escaping, formatting, and toast utilities.
  */
 
-const TOKEN_STORAGE_KEY = "lily_session_token";
-const API_OVERRIDE_KEY = "lily_api_base_override";
+const TOKEN_STORAGE_KEY = "beta_session_token";
+const API_OVERRIDE_KEY = "beta_api_base_override";
 
 export function getApiBase() {
   const configured = String(window.__APP_CONFIG__?.API_BASE_URL || "").trim().replace(/\/+$/, "");
@@ -65,12 +65,12 @@ export function clearAuthToken() {
 
 export function getBrand(state) {
   const ov = state?.overview || {};
-  const appName = ov.brand || "Lily API Hub";
+  const appName = ov.brand || "Beta API Hub";
   const companyName = ov.company || "Sonic Network";
   const brandLetter = (ov.brand_letter || appName.slice(0, 1) || "A").toUpperCase();
   const supportEmail = ov.support_email || "support@sonicnetwork.dev";
-  const keyPrefixLive = ov.key_prefix_live || "lily_live_";
-  const keyPrefixTest = ov.key_prefix_test || "lily_test_";
+  const keyPrefixLive = ov.key_prefix_live || "beta_live_";
+  const keyPrefixTest = ov.key_prefix_test || "beta_test_";
   return { appName, companyName, brandLetter, supportEmail, keyPrefixLive, keyPrefixTest };
 }
 

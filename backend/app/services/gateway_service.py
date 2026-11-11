@@ -66,7 +66,7 @@ def extract_api_key(request: Request, db: Optional[Session] = None) -> Optional[
     if auth.lower().startswith("bearer "):
         candidate = auth[7:].strip()
         brand = get_effective_branding(db)
-        if candidate.startswith((brand["api_key_prefix_live"], brand["api_key_prefix_test"], "lily_")) or "_" in candidate:
+        if candidate.startswith((brand["api_key_prefix_live"], brand["api_key_prefix_test"], "beta_")) or "_" in candidate:
             return candidate
     return None
 
@@ -551,7 +551,7 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
         "X-RateLimit-Remaining": str(rate_rem),
         "X-Quota-Daily-Remaining": str(daily_rem),
         "X-Quota-Monthly-Remaining": str(monthly_rem),
-        "X-Lily-Plan": plan.slug,
+        "X-Beta-Plan": plan.slug,
     }
 
     # Try built-in endpoints if in builtin or hybrid mode
@@ -646,9 +646,9 @@ async def handle_gateway_request(request: Request, subpath: str, db: Session) ->
         forward_headers[header_name] = f"{scheme} {master_key}".strip() if scheme else master_key
 
     if gw and gw.forward_user_context_headers:
-        forward_headers["X-Lily-User-Id"] = user.id
-        forward_headers["X-Lily-Plan-Slug"] = plan.slug
-        forward_headers["X-Lily-Key-Id"] = api_key.id
+        forward_headers["X-Beta-User-Id"] = user.id
+        forward_headers["X-Beta-Plan-Slug"] = plan.slug
+        forward_headers["X-Beta-Key-Id"] = api_key.id
 
     timeout_sec = max(1.0, (gw.timeout_ms if gw else 10000) / 1000.0)
     try:

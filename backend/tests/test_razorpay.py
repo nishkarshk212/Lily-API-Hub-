@@ -72,7 +72,7 @@ def test_razorpay_checkout_hmac_and_webhook_idempotency(client, test_env, monkey
     assert ok_verify.status_code == 200
     verify_json = ok_verify.json()
     assert verify_json["status"] == "successful"
-    assert verify_json["api_key"]["key_prefix"].startswith("lily_live_")
+    assert verify_json["api_key"]["key_prefix"].startswith("beta_live_")
     payment_record_id = verify_json["payment_id"]
 
     # 4. Receipt HTML & JSON downloadable

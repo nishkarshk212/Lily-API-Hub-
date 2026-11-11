@@ -2,7 +2,7 @@
 
 <!-- Dynamic Self-Hosted Animated SVG Hero Banner -->
 <a href="#-quick-start">
-  <img src="./docs/assets/banner-hero.svg" alt="Lily API Hub Dynamic Animated Banner" width="100%" />
+  <img src="./docs/assets/banner-hero.svg" alt="Beta API Hub Dynamic Animated Banner" width="100%" />
 </a>
 
 <br />
@@ -90,7 +90,7 @@
 ## 🔀 Gateway Architecture
 
 <div align="center">
-  <img src="./docs/assets/banner-architecture.svg" alt="Lily API Hub Isolated Master Gateway Lifecycle" width="100%" />
+  <img src="./docs/assets/banner-architecture.svg" alt="Beta API Hub Isolated Master Gateway Lifecycle" width="100%" />
 </div>
 
 <details>
@@ -156,7 +156,7 @@ python3 -m http.server 3000
 
 ## 🏷️ White-Label Branding
 
-Rename **Lily API Hub** and **Sonic Network** to any brand in seconds—no code edits needed.
+Rename **Beta API Hub** and **Sonic Network** to any brand in seconds—no code edits needed.
 
 <details>
 <summary><b>✨ Click to view all `.env` Branding Variables &amp; Live Admin Override Behavior</b></summary>
@@ -165,14 +165,14 @@ Update `.env` (or edit live inside **Admin Portal → Site & API Branding**, sto
 
 | Environment Variable | Default Example | Controls |
 | :--- | :--- | :--- |
-| `APP_NAME` | `Lily API Hub` | Navbar title, page `<title>`, emails, Hero/Docs copy & `/v1/status` |
+| `APP_NAME` | `Beta API Hub` | Navbar title, page `<title>`, emails, Hero/Docs copy & `/v1/status` |
 | `COMPANY_NAME` | `Sonic Network` | Subtitle, footer, support section, gateway provider metadata |
 | `BRAND_BADGE_LETTER` | `""` *(auto first char)* | Navbar brand square icon & dynamic SVG `/favicon.svg` |
 | `SUPPORT_EMAIL` | `support@sonicnetwork.dev` | Public support block, email templates & admin login hint |
 | `SITE_META_DESCRIPTION` | `Purchase API access plans...` | HTML `<meta name="description">` injected server-side |
-| `API_KEY_PREFIX_LIVE` | `lily_live_` | Prefix used when minting new live customer API keys |
-| `API_KEY_PREFIX_TEST` | `lily_test_` | Prefix used for test API keys *(legacy prefixes stay valid)* |
-| `RECEIPT_PREFIX` | `LILY` | Prefix on generated Razorpay payment receipt numbers |
+| `API_KEY_PREFIX_LIVE` | `beta_live_` | Prefix used when minting new live customer API keys |
+| `API_KEY_PREFIX_TEST` | `beta_test_` | Prefix used for test API keys *(legacy prefixes stay valid)* |
+| `RECEIPT_PREFIX` | `BETA` | Prefix on generated Razorpay payment receipt numbers |
 
 </details>
 
@@ -252,7 +252,7 @@ console.log(res.status, await res.json());
 
 ### Standard Gateway Telemetry Headers
 Every `/v1/*` response returns:
-`X-Request-Id` · `X-RateLimit-Limit` · `X-RateLimit-Remaining` · `X-Quota-Daily-Remaining` · `X-Quota-Monthly-Remaining` · `X-Lily-Plan` · `X-Gateway-Mode`
+`X-Request-Id` · `X-RateLimit-Limit` · `X-RateLimit-Remaining` · `X-Quota-Daily-Remaining` · `X-Quota-Monthly-Remaining` · `X-Beta-Plan` · `X-Gateway-Mode`
 
 </details>
 
@@ -269,7 +269,7 @@ Production blueprints are included out of the box—see [**`DEPLOYMENT_GUIDE.md`
 | :--- | :--- | :--- | :--- |
 | **Frontend (`frontend/`)** | **Vercel** or **Cloudflare Pages** | Root Directory: `frontend` (`vercel.json`, `_redirects`) | Pure static HTML/CSS/ES6 CDN — zero cold starts, global edge cache, free SSL |
 | **Backend (`backend/`)** | **Render** (`render.yaml`) or **Railway** (`railway.toml`) | Root Directory: `backend` (`Dockerfile`) | Stateful persistent Python container for rate limits, webhooks, PostgreSQL & upstream proxying |
-| **Upstream API** | **Cloudflare Workers** | Linked via `UPSTREAM_API_BASE_URL` + `MASTER_API_KEY` | Low-latency edge API origin protected behind Lily Gateway |
+| **Upstream API** | **Cloudflare Workers** | Linked via `UPSTREAM_API_BASE_URL` + `MASTER_API_KEY` | Low-latency edge API origin protected behind Beta Gateway |
 | **VPS All-in-One** | **Ubuntu VPS (Docker + Nginx TLS)** | [`docker-compose.yml`](./docker-compose.yml) · [`deploy/nginx.conf`](./deploy/nginx.conf) | Runs PostgreSQL 15 + FastAPI (`:8000`) + Same-Origin Nginx Proxy (`:3000`) cleanly together |
 
 > **Connecting Split Frontend → Backend:** Set `API_BASE_URL=https://your-backend-url` in Vercel/Cloudflare Pages (`sh build-config.sh`), and set `FRONTEND_URL=https://your-frontend-url` + `CORS_ORIGINS` on your Backend so cookies, Bearer sessions, Google OAuth redirects, email links & receipts work seamlessly.
@@ -334,6 +334,6 @@ pytest -v
 
 <div align="center">
 
-<img src="./docs/assets/footer-wave.svg" alt="Lily API Hub Animated Footer" width="100%" />
+<img src="./docs/assets/footer-wave.svg" alt="Beta API Hub Animated Footer" width="100%" />
 
 </div>

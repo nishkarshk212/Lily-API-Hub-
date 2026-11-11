@@ -1,4 +1,4 @@
-# Production Deployment Guide — Lily API Hub
+# Production Deployment Guide — Beta API Hub
 
 Complete deployment playbook for **VPS (Docker Compose + Nginx + SSL)**, **Vercel / Cloudflare Pages (Frontend)**, and **Render / Railway (Backend)**, configured via environment variables.
 
@@ -20,7 +20,7 @@ Required production values (`backend/.env`):
 - `FRONTEND_URL=https://your-site.vercel.app` *(or `https://yourdomain.com` if unified)*
 - `COOKIE_SECURE=true`
 - `CORS_ORIGINS=https://your-site.vercel.app`
-- `DATABASE_URL=postgresql+psycopg://lily_user:STRONG_PASSWORD@db:5432/lily_hub`
+- `DATABASE_URL=postgresql+psycopg://beta_user:STRONG_PASSWORD@db:5432/beta_hub`
 - `INITIAL_ADMIN_EMAIL` & `INITIAL_ADMIN_PASSWORD` *(rotate right after first login)*
 - `MASTER_API_KEY` & `UPSTREAM_API_BASE_URL` *(your Cloudflare Worker or private Master API)*
 - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
@@ -31,7 +31,7 @@ Required production values (`backend/.env`):
 
 ## 2. Master API Gateway Architecture
 
-Lily API Hub never exposes `MASTER_API_KEY` or `UPSTREAM_API_BASE_URL` to any browser or customer endpoint:
+Beta API Hub never exposes `MASTER_API_KEY` or `UPSTREAM_API_BASE_URL` to any browser or customer endpoint:
 1. Customers authenticate against `<APP_PUBLIC_URL>/v1/*` with their unique key (`X-API-Key` or `Authorization: Bearer`).
 2. `backend/app/services/gateway_service.py` checks:
    - Key hash (`SHA-256`) & active status
@@ -69,7 +69,7 @@ curl -s http://127.0.0.1:3000/healthz
 ```
 
 ### Step 3 — Host Nginx Reverse Proxy + Let's Encrypt HTTPS
-Create `/etc/nginx/sites-available/lily-api-hub`:
+Create `/etc/nginx/sites-available/beta-api-hub`:
 
 ```nginx
 server {
@@ -90,7 +90,7 @@ server {
 
 Enable HTTPS & firewall:
 ```bash
-sudo ln -s /etc/nginx/sites-available/lily-api-hub /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/beta-api-hub /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d yourdomain.com
 sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
@@ -107,7 +107,7 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 
 ### Option A — Backend on Render (1-Click Blueprint)
 1. Push this repository to GitHub (`.gitignore` and `backend/.dockerignore` exclude `.env` and local `*.db` files).
-2. In **Render Dashboard → New → Blueprint**, select this repo — Render reads [`render.yaml`](render.yaml) (`rootDir: backend`) and provisions both `lily-api-hub-backend` and `lily-hub-db` (PostgreSQL).
+2. In **Render Dashboard → New → Blueprint**, select this repo — Render reads [`render.yaml`](render.yaml) (`rootDir: backend`) and provisions both `beta-api-hub-backend` and `beta-hub-db` (PostgreSQL).
 3. Set `APP_PUBLIC_URL=https://api.yourdomain.com`, `FRONTEND_URL=https://your-site.vercel.app`, `CORS_ORIGINS=https://your-site.vercel.app`, `MASTER_API_KEY`, `RAZORPAY_*`, and `GOOGLE_*`.
 
 ### Option B — Backend on Railway
@@ -125,7 +125,7 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 ## 5. Cloudflare DNS + Upstream Worker Lockdown
 
 1. In Cloudflare DNS, add a **CNAME** or **A** record (`api.yourdomain.com` → your VPS IP / Render / Railway host) with **Proxy Status: Proxied (Orange Cloud)** and **SSL/TLS → Full (strict)**.
-2. Use a strong random master secret on your upstream Cloudflare Worker and configure it inside `backend/.env` or **Admin Portal → Master API Config** so all customer calls pass through Lily API Hub quotas & key checks.
+2. Use a strong random master secret on your upstream Cloudflare Worker and configure it inside `backend/.env` or **Admin Portal → Master API Config** so all customer calls pass through Beta API Hub quotas & key checks.
 
 ---
 

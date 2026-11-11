@@ -44,7 +44,7 @@ export function renderTrafficChart(series, valueKey = "requests", secondaryKey =
           const errY = padY + plotH - errH;
           return `
             <g class="chart-hover-target" data-tip="${esc(p.item.date)}: ${p.val} reqs (${p.errVal} errors)" data-cx="${p.cx}" data-cy="${y}">
-              <rect class="svg-bar-rect" style="animation-delay:${idx * 0.04}s" x="${p.cx - barW / 2}" y="${y}" width="${barW}" height="${barH}" rx="6" fill="url(#lilyBarGrad)" opacity="${mode === "combo" ? "0.78" : "0.95"}"></rect>
+              <rect class="svg-bar-rect" style="animation-delay:${idx * 0.04}s" x="${p.cx - barW / 2}" y="${y}" width="${barW}" height="${barH}" rx="6" fill="url(#betaBarGrad)" opacity="${mode === "combo" ? "0.78" : "0.95"}"></rect>
               ${errH > 0 ? `<rect x="${p.cx - barW / 2}" y="${errY}" width="${barW}" height="${errH}" rx="4" fill="#e11d48" opacity="0.88"></rect>` : ""}
             </g>`;
         })
@@ -56,7 +56,7 @@ export function renderTrafficChart(series, valueKey = "requests", secondaryKey =
     const polylinePts = points.map((p) => `${p.cx},${p.y}`).join(" ");
     const areaPts = `${points[0].cx},${padY + plotH} ${polylinePts} ${points[points.length - 1].cx},${padY + plotH}`;
     lineMarkup = `
-      ${mode === "line" ? `<polygon points="${areaPts}" fill="url(#lilyAreaGrad)" />` : ""}
+      ${mode === "line" ? `<polygon points="${areaPts}" fill="url(#betaAreaGrad)" />` : ""}
       <polyline class="svg-line-path" points="${polylinePts}" fill="none" stroke="${mode === "combo" ? "#0f172a" : "#2563eb"}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
       ${points
         .map(
@@ -83,11 +83,11 @@ export function renderTrafficChart(series, valueKey = "requests", secondaryKey =
       <div class="chart-tooltip"></div>
       <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" role="img" aria-label="API Usage Line & Bar Chart">
         <defs>
-          <linearGradient id="lilyBarGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="betaBarGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#2563eb" />
             <stop offset="100%" stop-color="#60a5fa" />
           </linearGradient>
-          <linearGradient id="lilyAreaGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="betaAreaGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="rgba(37, 99, 235, 0.22)" />
             <stop offset="100%" stop-color="rgba(37, 99, 235, 0.01)" />
           </linearGradient>
