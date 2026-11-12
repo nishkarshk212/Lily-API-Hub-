@@ -57,12 +57,12 @@ export function renderTrafficChart(series, valueKey = "requests", secondaryKey =
     const areaPts = `${points[0].cx},${padY + plotH} ${polylinePts} ${points[points.length - 1].cx},${padY + plotH}`;
     lineMarkup = `
       ${mode === "line" ? `<polygon points="${areaPts}" fill="url(#betaAreaGrad)" />` : ""}
-      <polyline class="svg-line-path" points="${polylinePts}" fill="none" stroke="${mode === "combo" ? "#00f2fe" : "#38bdf8"}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      <polyline class="svg-line-path" points="${polylinePts}" fill="none" stroke="${mode === "combo" ? "#ffffff" : "#f1f1f1"}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
       ${points
         .map(
           (p) => `
           <g class="chart-hover-target" data-tip="${esc(p.item.date)}: ${p.val} reqs (${p.errVal} errors)" data-cx="${p.cx}" data-cy="${p.y}">
-            <circle cx="${p.cx}" cy="${p.y}" r="4.5" fill="#060911" stroke="${mode === "combo" ? "#00f2fe" : "#38bdf8"}" stroke-width="2.5" style="cursor:pointer;" />
+            <circle cx="${p.cx}" cy="${p.y}" r="4.5" fill="#0f0f0f" stroke="${mode === "combo" ? "#ffffff" : "#f1f1f1"}" stroke-width="2.5" style="cursor:pointer;" />
           </g>`
         )
         .join("")}
@@ -72,8 +72,8 @@ export function renderTrafficChart(series, valueKey = "requests", secondaryKey =
   const labelsMarkup = points
     .map(
       (p) => `
-        <text x="${p.cx}" y="${height - 4}" text-anchor="middle" fill="#94a3b8" font-size="11">${esc(p.shortDate)}</text>
-        <text x="${p.cx}" y="${Math.max(12, p.y - 9)}" text-anchor="middle" fill="#ffffff" font-weight="600" font-size="11">${p.val}</text>
+        <text x="${p.cx}" y="${height - 4}" text-anchor="middle" fill="#717171" font-size="11">${esc(p.shortDate)}</text>
+        <text x="${p.cx}" y="${Math.max(12, p.y - 9)}" text-anchor="middle" fill="#f1f1f1" font-weight="600" font-size="11">${p.val}</text>
       `
     )
     .join("");
@@ -84,12 +84,12 @@ export function renderTrafficChart(series, valueKey = "requests", secondaryKey =
       <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" role="img" aria-label="API Usage Line & Bar Chart">
         <defs>
           <linearGradient id="betaBarGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#00f2fe" />
-            <stop offset="100%" stop-color="#2563eb" />
+            <stop offset="0%" stop-color="#f1f1f1" />
+            <stop offset="100%" stop-color="#383838" />
           </linearGradient>
           <linearGradient id="betaAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="rgba(0, 242, 254, 0.28)" />
-            <stop offset="100%" stop-color="rgba(0, 242, 254, 0.01)" />
+            <stop offset="0%" stop-color="rgba(255, 255, 255, 0.22)" />
+            <stop offset="100%" stop-color="rgba(255, 255, 255, 0.01)" />
           </linearGradient>
         </defs>
         ${gridLines}

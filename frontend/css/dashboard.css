@@ -1,11 +1,11 @@
 /* User Dashboard, API Playground & Developer Portal Styles (Next-Gen Cyber/Slate Theme) */
 
 :root {
-  --dash-accent: #00f2fe;
-  --dash-accent-soft: rgba(0, 242, 254, 0.08);
-  --dash-accent-border: rgba(0, 242, 254, 0.3);
-  --dash-cyan: #38bdf8;
-  --dash-emerald: #10b981;
+  --dash-accent: #ffffff;
+  --dash-accent-soft: rgba(255, 255, 255, 0.08);
+  --dash-accent-border: #383838;
+  --dash-cyan: #3ea6ff;
+  --dash-emerald: #2ba640;
 }
 
 .workspace-layout {
@@ -23,10 +23,9 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(16px);
+  background: #181818;
+  border: 1px solid #272727;
+  border-radius: 12px;
 }
 
 .sidebar-section-label {
@@ -44,38 +43,37 @@
   gap: 10px;
   width: 100%;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--text-secondary);
+  color: #aaaaaa;
   font-family: inherit;
   font-size: 13.5px;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.18s var(--ease-out), background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .sidebar-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: #272727;
   color: #ffffff;
-  transform: translateX(2px);
 }
 
 .sidebar-btn.active {
-  background: linear-gradient(135deg, rgba(0, 242, 254, 0.14) 0%, rgba(37, 99, 235, 0.22) 100%);
-  border-color: rgba(0, 242, 254, 0.35);
-  color: var(--neon-cyan);
+  background: #272727;
+  border-left: 3px solid #ff0000;
+  color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 4px 18px -4px rgba(0, 242, 254, 0.3);
+  border-radius: 4px 8px 8px 4px;
 }
 
 .dash-tab-stage {
-  animation: dashFadeSlide 0.34s var(--ease-out) both;
+  animation: dashFadeSlide 0.25s var(--ease-out) both;
 }
 
 @keyframes dashFadeSlide {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -90,39 +88,16 @@
   position: relative;
   padding: 20px;
   overflow: hidden;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(16px);
-  transition: transform 0.25s var(--ease-out), border-color 0.22s ease, box-shadow 0.25s ease;
-  animation: dashFadeSlide 0.4s var(--ease-out) both;
-}
-
-.kpi-card:nth-child(1) { animation-delay: 0.02s; }
-.kpi-card:nth-child(2) { animation-delay: 0.08s; }
-.kpi-card:nth-child(3) { animation-delay: 0.14s; }
-.kpi-card:nth-child(4) { animation-delay: 0.20s; }
-
-.kpi-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--neon-cyan), #38bdf8, #818cf8);
-  opacity: 0;
-  transition: opacity 0.25s ease;
+  background: #181818;
+  border: 1px solid #272727;
+  border-radius: 12px;
+  transition: transform 0.2s var(--ease-out), border-color 0.2s ease, background 0.2s ease;
 }
 
 .kpi-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--border-bright);
-  box-shadow: var(--shadow-neon);
-}
-
-.kpi-card:hover::before {
-  opacity: 1;
+  transform: translateY(-2px);
+  background: #212121;
+  border-color: #383838;
 }
 
 .kpi-label {

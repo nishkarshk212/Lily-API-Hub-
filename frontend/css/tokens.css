@@ -1,55 +1,59 @@
 :root {
-  /* Deep Obsidian & Midnight Surfaces */
-  --bg-obsidian: #07090e;
-  --bg-midnight: #0c1017;
-  --bg-deep-blue: #111726;
-  --bg-panel: rgba(16, 23, 38, 0.72);
-  --bg-panel-solid: #101726;
-  --bg-panel-hover: #182238;
-  --bg-code: #05070c;
+  /* YouTube True Dark Theme Surfaces */
+  --bg-obsidian: #0f0f0f;
+  --bg-midnight: #121212;
+  --bg-deep-blue: #181818;
+  --bg-panel: #1f1f1f;
+  --bg-panel-solid: #212121;
+  --bg-panel-hover: #272727;
+  --bg-code: #000000;
 
-  /* Neon & Electric Accents */
-  --neon-cyan: #00f2fe;
-  --neon-blue: #38bdf8;
-  --brand-blue: #2563eb;
-  --brand-indigo: #6366f1;
-  --brand-purple: #a855f7;
-  --glow-cyan: rgba(0, 242, 254, 0.22);
-  --glow-blue: rgba(56, 189, 248, 0.20);
-  --glow-purple: rgba(99, 102, 241, 0.20);
+  /* YouTube Signature Red & Monochrome High-Contrast Accents */
+  --yt-red: #ff0000;
+  --yt-red-hover: #cc0000;
+  --yt-red-soft: rgba(255, 0, 0, 0.12);
+  --neon-cyan: #ffffff;
+  --neon-blue: #f1f1f1;
+  --brand-blue: #3ea6ff;
+  --brand-indigo: #ffffff;
+  --brand-purple: #ffffff;
+  --glow-cyan: rgba(255, 255, 255, 0.12);
+  --glow-blue: rgba(255, 255, 255, 0.08);
+  --glow-purple: rgba(255, 255, 255, 0.06);
 
-  /* Status Colors (Vibrant on Dark) */
-  --success: #10b981;
-  --success-bg: rgba(16, 185, 129, 0.12);
+  /* Status Colors */
+  --success: #2ba640;
+  --success-bg: rgba(43, 166, 64, 0.14);
   --warning: #f59e0b;
   --warning-bg: rgba(245, 158, 11, 0.14);
-  --danger: #f43f5e;
-  --danger-bg: rgba(244, 63, 94, 0.12);
-  --info: #00f2fe;
-  --info-bg: rgba(0, 242, 254, 0.10);
+  --danger: #ff4e45;
+  --danger-bg: rgba(255, 78, 69, 0.14);
+  --info: #3ea6ff;
+  --info-bg: rgba(62, 166, 255, 0.12);
 
-  /* Text Hierarchy */
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  /* Text Hierarchy (YouTube High Contrast) */
+  --text-primary: #f1f1f1;
+  --text-secondary: #aaaaaa;
+  --text-muted: #717171;
+  --text-dim: #555555;
 
-  /* Borders & Radii */
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-bright: rgba(0, 242, 254, 0.40);
-  --border-glass: rgba(255, 255, 255, 0.14);
+  /* YouTube Borders & Chips */
+  --border-subtle: #272727;
+  --border-bright: rgba(255, 255, 255, 0.22);
+  --border-glass: rgba(255, 255, 255, 0.12);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Roboto', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Shadows & Glows */
-  --shadow-card: 0 14px 34px -10px rgba(0, 0, 0, 0.65), 0 1px 2px rgba(255, 255, 255, 0.04);
-  --shadow-neon: 0 0 30px rgba(0, 242, 254, 0.22), 0 20px 48px -12px rgba(0, 0, 0, 0.85);
+  /* Shadows (Clean Depth, No Neon) */
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-neon: 0 8px 24px rgba(0, 0, 0, 0.7);
 
   /* Transitions */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
