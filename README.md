@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy" />
   <img src="https://img.shields.io/badge/Razorpay-HMAC--SHA256-072654?style=for-the-badge&logo=razorpay&logoColor=3395FF" alt="Razorpay" />
   <img src="https://img.shields.io/badge/OAuth%202.0-Google-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google OAuth" />
-  <img src="https://img.shields.io/badge/Pytest-17%2F17%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 17/17 Passing" />
+  <img src="https://img.shields.io/badge/Pytest-21%2F21%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 21/21 Passing" />
 </p>
 
 <!-- Interactive Quick Navigation Bar -->
@@ -220,6 +220,12 @@ Sign in at **`/#admin/login`** using `INITIAL_ADMIN_EMAIL` & `INITIAL_ADMIN_PASS
 | `GET` | `/v1/crypto/uuid` | Generate cryptographically random UUIDv4 tokens |
 | `GET` | `/v1/utils/timestamp` | Synchronized ISO-8601 UTC & Unix timestamps |
 | `POST` | `/v1/utils/json-validate` | Validate JSON syntax and report object size & key count |
+| `GET/POST` | `/v1/media/search` (`/v1/yt/search`) | Search songs & videos with metadata, thumbnails & signed download URLs |
+| `GET/POST` | `/v1/media/info` (`/v1/yt/info`) | Full track/video metadata, music tags, channel stats, chapters, captions & all formats |
+| `GET/POST` | `/v1/media/audio` (`/v1/media/song`) | Download/stream audio (`mp3`, `m4a`, `opus`, `webm`, `original`) or `mode=json` |
+| `GET/POST` | `/v1/media/video` (`/v1/yt/video`) | Download/stream muxed video (`1080p`, `720p`, `480p`, `360p`, `best`) in `mp4`/`webm` |
+| `GET/POST` | `/v1/media/download` | Unified media downloader (`type=audio\|video\|info`) |
+| `GET` | `/v1/media/file?token=...` | 15-minute HMAC-signed download URL without exposing raw API keys |
 
 ### Quickstart Snippets
 
@@ -284,7 +290,7 @@ Production blueprints are included out of the box—see [**`DEPLOYMENT_GUIDE.md`
 ## 🧪 Testing & Repository Layout
 
 <details>
-<summary><b>🧪 Click to view Test Coverage (17/17 Passing) &amp; Two-Part Project Structure</b></summary>
+<summary><b>🧪 Click to view Test Coverage (21/21 Passing) &amp; Two-Part Project Structure</b></summary>
 
 Run the full automated suite from `backend/`:
 ```bash
@@ -297,6 +303,7 @@ pytest -v
 | :--- | :--- |
 | [`backend/tests/test_auth.py`](./backend/tests/test_auth.py) | Registration, login, email verification, password reset & Google OAuth CSRF state validation |
 | [`backend/tests/test_gateway_quotas.py`](./backend/tests/test_gateway_quotas.py) | Key reveal/rotate/revoke, max-key caps, built-in endpoints, rate limits, expiry & Master proxy injection |
+| [`backend/tests/test_media_api.py`](./backend/tests/test_media_api.py) | Media search, full details, SSRF validation, MP3/MP4 streaming, signed URLs & Admin cookies config |
 | [`backend/tests/test_razorpay.py`](./backend/tests/test_razorpay.py) | Razorpay order creation, HMAC verification, webhook idempotency, cancellation & reconciliation |
 | [`backend/tests/test_admin.py`](./backend/tests/test_admin.py) | Admin RBAC isolation, user suspension, plan CRUD, Vercel fallback, cross-origin Bearer auth & live branding |
 | [`backend/tests/test_telegram.py`](./backend/tests/test_telegram.py) | @BotFather onboarding, coloured `ButtonStyle` menus, per-key usage analytics, webhooks, polling & alerts |
@@ -314,12 +321,12 @@ pytest -v
 │   ├── app/
 │   │   ├── main.py                  # FastAPI app, dynamic SVG favicon, CORS & Telegram polling lifecycle
 │   │   ├── core/                    # Config (.env), SQLAlchemy engine, Fernet security, email & seed
-│   │   ├── models/                  # User, Plan, ApiKey, Payment, MasterGateway, SiteBranding, TelegramBot
+│   │   ├── models/                  # User, Plan, ApiKey, Payment, MasterGateway, MediaGatewayConfig, SiteBranding, TelegramBot
 │   │   ├── routers/                 # Auth, Public, Plans, Keys, Payments, Playground, Telegram, Admin, Gateway (/v1)
 │   │   ├── schemas/                 # Pydantic v2 validation schemas
-│   │   └── services/                # Auth, Branding, Key minting, Gateway proxy, Razorpay & Telegram engine
+│   │   └── services/                # Auth, Branding, Key minting, Gateway proxy, Media extractor, Razorpay & Telegram engine
 │   ├── telegram_bot_worker.py       # Optional standalone long-polling CLI worker
-│   ├── tests/                       # 17 end-to-end automated integration tests
+│   ├── tests/                       # 21 end-to-end automated integration tests
 │   ├── Dockerfile · .dockerignore · railway.toml
 │   └── requirements.txt · pyproject.toml · .env.example
 ├── docs/assets/                     # Custom animated SVG banners & architecture visuals
