@@ -428,21 +428,21 @@ export function openKeyUsageModal({ key, usage, plan }) {
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;">
-          <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
+          <div style="background:rgba(0,0,0,0.35);border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
             <span style="font-size:11.5px;color:var(--text-muted);">Today (UTC)</span>
-            <strong style="display:block;font-size:18px;color:#0a0a0a;">${formatNum(u.today_requests || 0)}</strong>
+            <strong style="display:block;font-size:18px;color:#ffffff;">${formatNum(u.today_requests || 0)}</strong>
           </div>
-          <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
+          <div style="background:rgba(0,0,0,0.35);border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
             <span style="font-size:11.5px;color:var(--text-muted);">Total Requests</span>
-            <strong style="display:block;font-size:18px;color:#0a0a0a;">${formatNum(u.total_requests ?? key.total_requests ?? 0)}</strong>
+            <strong style="display:block;font-size:18px;color:#ffffff;">${formatNum(u.total_requests ?? key.total_requests ?? 0)}</strong>
           </div>
-          <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
+          <div style="background:rgba(0,0,0,0.35);border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
             <span style="font-size:11.5px;color:var(--text-muted);">Success Rate</span>
-            <strong style="display:block;font-size:18px;color:#059669;">${esc(u.success_rate ?? 100)}%</strong>
+            <strong style="display:block;font-size:18px;color:#10b981;">${esc(u.success_rate ?? 100)}%</strong>
           </div>
-          <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
+          <div style="background:rgba(0,0,0,0.35);border:1px solid var(--border-subtle);border-radius:10px;padding:10px;">
             <span style="font-size:11.5px;color:var(--text-muted);">Avg Latency</span>
-            <strong style="display:block;font-size:18px;color:#2563eb;">${esc(u.avg_latency_ms || 0)} ms</strong>
+            <strong style="display:block;font-size:18px;color:var(--neon-cyan);">${esc(u.avg_latency_ms || 0)} ms</strong>
           </div>
         </div>
 

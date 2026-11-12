@@ -142,7 +142,7 @@ export async function renderDashboardPage(state, handlers) {
             return `
               <div class="glass-card dash-plan-card ${isCurrent ? "current-plan" : ""}">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                  <strong style="font-size:16px;color:#0a0a0a;">${esc(p.name)}</strong>
+                  <strong style="font-size:16px;color:#ffffff;">${esc(p.name)}</strong>
                   ${
                     isCurrent
                       ? `<span class="badge badge-success">Active</span>`
@@ -152,15 +152,15 @@ export async function renderDashboardPage(state, handlers) {
                   }
                 </div>
                 <div style="display:flex;align-items:baseline;gap:6px;">
-                  <span style="font-size:26px;font-weight:800;color:#0a0a0a;">${isFree ? "Free" : esc(formatInr(p.price_paise))}</span>
+                  <span style="font-size:26px;font-weight:800;color:#ffffff;">${isFree ? "Free" : esc(formatInr(p.price_paise))}</span>
                   <span style="font-size:12px;color:var(--text-muted);">/ ${p.billing_cycle_days} days</span>
                 </div>
                 <p style="margin:0;font-size:12.5px;color:var(--text-muted);min-height:34px;">${esc(p.tagline)}</p>
-                <div style="background:#f8fafc;border:1px solid var(--border-subtle);border-radius:10px;padding:10px;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                  <div><span style="color:var(--text-muted);">Daily</span><strong style="display:block;color:#0a0a0a;">${formatNum(p.daily_request_limit)}</strong></div>
-                  <div><span style="color:var(--text-muted);">Monthly</span><strong style="display:block;color:#0a0a0a;">${formatNum(p.monthly_request_limit)}</strong></div>
-                  <div><span style="color:var(--text-muted);">Rate/min</span><strong style="display:block;color:#0a0a0a;">${formatNum(p.rate_limit_per_minute)}</strong></div>
-                  <div><span style="color:var(--text-muted);">Max Keys</span><strong style="display:block;color:#0a0a0a;">${p.max_api_keys}</strong></div>
+                <div style="background:rgba(0,0,0,0.35);border:1px solid var(--border-subtle);border-radius:10px;padding:10px;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                  <div><span style="color:var(--text-muted);">Daily</span><strong style="display:block;color:var(--neon-cyan);">${formatNum(p.daily_request_limit)}</strong></div>
+                  <div><span style="color:var(--text-muted);">Monthly</span><strong style="display:block;color:var(--neon-cyan);">${formatNum(p.monthly_request_limit)}</strong></div>
+                  <div><span style="color:var(--text-muted);">Rate/min</span><strong style="display:block;color:var(--neon-cyan);">${formatNum(p.rate_limit_per_minute)}</strong></div>
+                  <div><span style="color:var(--text-muted);">Max Keys</span><strong style="display:block;color:var(--neon-cyan);">${p.max_api_keys}</strong></div>
                 </div>
                 <ul class="plan-features" style="margin:4px 0 8px;font-size:12.5px;">
                   ${(p.features_json || []).slice(0, 3).map((f) => `<li>${esc(f)}</li>`).join("")}
@@ -202,7 +202,7 @@ export async function renderDashboardPage(state, handlers) {
               <span style="font-size:11.5px;font-weight:700;text-transform:uppercase;color:var(--text-muted);">API Base URL</span>
               <button class="btn btn-ghost btn-sm" id="dash-copy-base">Copy URL</button>
             </div>
-            <div class="mono" style="font-size:13.5px;font-weight:700;color:#2563eb;word-break:break-all;">${esc(baseUrl)}</div>
+            <div class="mono" style="font-size:13.5px;font-weight:700;color:var(--neon-cyan);word-break:break-all;">${esc(baseUrl)}</div>
             <div style="font-size:12px;color:var(--text-muted);">
               ${sub ? `Plan Status: ${statusBadge(sub.status)} · Expires ${formatDate(sub.expires_at)}` : "Activate Free Sandbox or any plan below to begin."}
             </div>
@@ -311,7 +311,7 @@ export async function renderDashboardPage(state, handlers) {
                 sub && plan
                   ? `
                 <div style="font-size:12.5px;color:var(--text-muted);margin-top:10px;">
-                  Methods: <span class="mono" style="color:#0a0a0a;">${esc(plan.allowed_methods)}</span> · Expires ${formatDate(sub.expires_at)}
+                  Methods: <span class="mono" style="color:#ffffff;">${esc(plan.allowed_methods)}</span> · Expires ${formatDate(sub.expires_at)}
                 </div>
               `
                   : ""
@@ -411,7 +411,7 @@ export async function renderDashboardPage(state, handlers) {
           <div class="base-url-bar">
             <div>
               <div style="font-size:12px;color:var(--text-muted);">API Base URL</div>
-              <div class="mono" style="font-size:14.5px;font-weight:700;color:#2563eb;">${esc(baseUrl)}</div>
+              <div class="mono" style="font-size:14.5px;font-weight:700;color:var(--neon-cyan);">${esc(baseUrl)}</div>
             </div>
             <button class="btn btn-secondary btn-sm" id="dash-copy-base">Copy Base URL</button>
           </div>

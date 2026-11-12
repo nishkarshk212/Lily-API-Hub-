@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 import uuid
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -39,6 +39,11 @@ class ApiRequestLog(Base):
     gateway_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="builtin")
     error_code: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
+
+    __table_args__ = (
+        Index("ix_api_request_logs_user_created", "user_id", "created_at"),
+        Index("ix_api_request_logs_key_created", "api_key_id", "created_at"),
+    )
 
 
 class MasterGatewayConfig(Base):

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.cache import get_overview_cache
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.gateway import MasterGatewayConfig
@@ -169,13 +170,18 @@ TESTIMONIALS = [
 @router.get("/overview")
 def get_public_overview(request: Request, db: Session = Depends(get_db)):
     cfg = get_settings()
+    base_url = cfg.resolve_api_base_url(request)
+    cache = get_overview_cache()
+    cached = cache.get(base_url)
+    if cached is not None:
+        return cached
+
     brand = get_effective_branding(db, cfg)
     gw = db.get(MasterGatewayConfig, 1)
     pbot = db.scalar(
         select(TelegramBot).where(TelegramBot.is_platform_bot.is_(True), TelegramBot.is_active.is_(True)).limit(1)
     )
     active_plans_count = db.scalar(select(func.count(SubscriptionPlan.id)).where(SubscriptionPlan.is_active.is_(True))) or 0
-    base_url = cfg.resolve_api_base_url(request)
     faqs = [
         {
             "q": f"How do customer API keys link to {brand['company_name']}'s Master Backend?",
@@ -200,7 +206,7 @@ def get_public_overview(request: Request, db: Session = Depends(get_db)):
         )
         for ep in BUILTIN_ENDPOINTS_CATALOG
     ]
-    return {
+    result = {
         "brand": brand["app_name"],
         "company": brand["company_name"],
         "brand_letter": brand["brand_letter"],
@@ -220,6 +226,8 @@ def get_public_overview(request: Request, db: Session = Depends(get_db)):
         "faqs": faqs,
         "testimonials": testimonials,
     }
+    cache.set(base_url, result, ttl=60.0)
+    return result
 
 
 @router.post("/support")

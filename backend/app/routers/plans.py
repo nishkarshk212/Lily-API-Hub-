@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.cache import get_plans_cache
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import utc_now
@@ -27,12 +28,19 @@ router = APIRouter(tags=["Plans & Subscriptions"])
 
 @router.get("/api/plans", response_model=list[PlanOut])
 def list_public_plans(db: Session = Depends(get_db)):
+    cache = get_plans_cache()
+    cached = cache.get("public_plans")
+    if cached is not None:
+        return cached
+
     plans = db.scalars(
         select(SubscriptionPlan)
         .where(SubscriptionPlan.is_active.is_(True))
         .order_by(SubscriptionPlan.sort_order.asc(), SubscriptionPlan.price_paise.asc())
     ).all()
-    return plans
+    out = [PlanOut.model_validate(p) for p in plans]
+    cache.set("public_plans", out, ttl=60.0)
+    return out
 
 
 @router.get("/api/subscriptions/current")

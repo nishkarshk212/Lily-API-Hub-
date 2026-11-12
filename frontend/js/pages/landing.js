@@ -1,5 +1,5 @@
 /**
- * Simple Monochrome White & Black Landing Page with smooth scroll-reveal & interactive terminal animations.
+ * Next-Gen Developer Platform Landing Page with interactive terminal, media showcase & smooth animations.
  */
 
 import { api, esc, formatInr, formatNum, getApiBase, getBrand, showToast } from "../api.js";
@@ -38,19 +38,34 @@ export function renderLandingPage(state, handlers) {
 
   const features = [
     {
-      icon: "01",
+      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
       title: "Master Key Isolation",
-      desc: "Your upstream master API key and backend URL stay encrypted server-side — never exposed to browsers.",
+      desc: "Upstream master credentials and backends stay securely encrypted server-side with Fernet — never exposed to client browsers.",
     },
     {
-      icon: "02",
-      title: "Razorpay Auto-Provisioning",
-      desc: "HMAC-SHA256 verified UPI, Card & Netbanking payments instantly issue unique plan-scoped keys.",
+      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`,
+      title: "Razorpay Instant Provisioning",
+      desc: "HMAC-SHA256 verified UPI, RuPay, Cards & Indian Netbanking payments automatically activate unique plan-scoped customer keys.",
     },
     {
-      icon: "03",
-      title: "Quotas, Logs & Telegram Bot",
-      desc: "Real-time daily/monthly caps, live testing playground, and 1-click @BotFather Telegram Bot control.",
+      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+      title: "YouTube & Media Extractor",
+      desc: "Built-in /v1/media/* endpoints to search Hindi songs, download 320kbps MP3s, stream 1080p MP4s, and parse YouTube track metadata.",
+    },
+    {
+      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+      title: "Sliding-Window Quotas & Rate Limits",
+      desc: "Thread-safe sliding-window throttling, atomic daily UTC and monthly quota consumption with sub-18ms gateway overhead.",
+    },
+    {
+      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
+      title: "Telegram Bot Companion",
+      desc: "1-click @BotFather Telegram pairing with coloured button menus, key inspection, live /v1 calls, and 80%/100% quota alerts.",
+    },
+    {
+      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`,
+      title: "Live Playground & SDKs",
+      desc: "Interactive in-browser testing IDE with query builder, headers, binary audio player, and auto-generated cURL, Python & JS code.",
     },
   ];
 
@@ -66,6 +81,19 @@ curl -s "${esc(baseUrl)}/status" \\
   <span class="code-key">"provider"</span>: <span class="code-str">"${esc(brand.companyName)}"</span>,
   <span class="code-key">"status"</span>: <span class="code-str">"operational"</span>,
   <span class="code-key">"plan"</span>: <span class="code-str">"pro-velocity"</span>
+}<span class="cursor-blink"></span>`,
+    },
+    media: {
+      badge: "GET /v1/media/search?q=kesariya",
+      code: `<span class="code-cmt"># High-speed media extraction & Hindi song downloader</span>
+curl -s "${esc(baseUrl)}/media/search?q=kesariya%20hindi%20song&limit=1" \\
+  -H "X-API-Key: ${esc(sampleMaskedKey)}"
+
+{
+  <span class="code-key">"title"</span>: <span class="code-str">"Kesariya - Brahmāstra | Arijit Singh"</span>,
+  <span class="code-key">"duration"</span>: <span class="code-str">"04:28"</span>,
+  <span class="code-key">"audio_mp3"</span>: <span class="code-str">"/v1/media/audio?id=BddP6PYo2gs&format=mp3"</span>,
+  <span class="code-key">"video_720p"</span>: <span class="code-str">"/v1/media/video?id=BddP6PYo2gs&quality=720p"</span>
 }<span class="cursor-blink"></span>`,
     },
     hash: {
@@ -161,6 +189,10 @@ curl -s "${esc(baseUrl)}/geo/ip-parse?ip=8.8.8.8" \\
               <div class="hero-metric-lbl">Gateway Uptime</div>
             </div>
             <div>
+              <div class="hero-metric-val">&lt; 18ms</div>
+              <div class="hero-metric-lbl">Edge Latency</div>
+            </div>
+            <div>
               <div class="hero-metric-val">HMAC-256</div>
               <div class="hero-metric-lbl">Razorpay Verified</div>
             </div>
@@ -175,10 +207,13 @@ curl -s "${esc(baseUrl)}/geo/ip-parse?ip=8.8.8.8" \\
           <div class="terminal-top">
             <div class="terminal-dots"><span></span><span></span><span></span></div>
             <span class="mono" id="hero-term-route">${terminalSamples.status.badge}</span>
-            <span style="color:#ffffff;font-weight:600;">200 OK</span>
+            <span style="color:#10b981;font-weight:700;display:flex;align-items:center;gap:5px;">
+              <span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span> 200 OK
+            </span>
           </div>
           <div class="terminal-switcher">
             <button type="button" class="term-pill active" data-term="status">/status</button>
+            <button type="button" class="term-pill" data-term="media">/media/search</button>
             <button type="button" class="term-pill" data-term="hash">/crypto/hash</button>
             <button type="button" class="term-pill" data-term="ip">/geo/ip-parse</button>
           </div>
@@ -194,7 +229,7 @@ curl -s "${esc(baseUrl)}/geo/ip-parse?ip=8.8.8.8" \\
             .map(
               (f, idx) => `
               <div class="glass-card interactive feature-card reveal reveal-d${idx + 1}">
-                <div class="feature-icon">${esc(f.icon)}</div>
+                <div class="feature-icon-wrap">${f.icon}</div>
                 <h3>${esc(f.title)}</h3>
                 <p>${esc(f.desc)}</p>
               </div>`
@@ -207,9 +242,9 @@ curl -s "${esc(baseUrl)}/geo/ip-parse?ip=8.8.8.8" \\
     <section class="section" id="section-pricing">
       <div class="container">
         <div class="section-header reveal">
-          <span class="section-kicker">Pricing</span>
+          <span class="section-kicker">Transparent Pricing</span>
           <h2 class="section-title">Choose Your API Plan</h2>
-          <p class="section-sub">Instant API key provisioning via Razorpay UPI, Cards & Netbanking.</p>
+          <p class="section-sub">Instant API key provisioning via Razorpay UPI, Cards & Netbanking with zero manual setup.</p>
         </div>
         <div class="pricing-grid">
           ${pricingHtml}
@@ -219,12 +254,12 @@ curl -s "${esc(baseUrl)}/geo/ip-parse?ip=8.8.8.8" \\
 
     <section class="section">
       <div class="container">
-        <div class="glass-card reveal two-col" style="padding:30px;gap:28px;align-items:center;">
+        <div class="glass-card reveal two-col" style="padding:32px;gap:32px;align-items:center;">
           <div>
-            <span class="section-kicker">Quickstart</span>
-            <h2 style="margin:0 0 10px;font-size:24px;">One Header. Full Telemetry.</h2>
-            <p style="color:var(--text-muted);font-size:14.5px;margin:0 0 18px;">
-              Authenticate requests to <code class="mono">${esc(baseUrl)}</code> using <code>X-API-Key</code> or <code>Authorization: Bearer</code>.
+            <span class="section-kicker">Developer Quickstart</span>
+            <h2 style="margin:0 0 12px;font-size:25px;color:#ffffff;">One Header. Full Telemetry.</h2>
+            <p style="color:var(--text-secondary);font-size:15px;line-height:1.6;margin:0 0 20px;">
+              Authenticate requests to <code class="mono" style="color:var(--neon-cyan);">${esc(baseUrl)}</code> using <code>X-API-Key</code> or <code>Authorization: Bearer</code>. Real-time rate limits and remaining daily quotas are returned in every response header.
             </p>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-primary btn-sm" id="landing-full-docs">Read Documentation</button>
@@ -232,14 +267,19 @@ curl -s "${esc(baseUrl)}/geo/ip-parse?ip=8.8.8.8" \\
               <button class="btn btn-secondary btn-sm" id="landing-open-tg">✈ Connect Telegram Bot</button>
             </div>
           </div>
-          <div class="code-block-wrap" style="margin:0;">
+          <div class="code-block-wrap" style="margin:0;width:100%;">
+            <div class="code-block-head">
+              <span class="mono" style="font-size:12px;color:var(--neon-cyan);">quickstart.py</span>
+              <span style="font-size:11px;color:var(--text-muted);">Python 3</span>
+            </div>
             <pre class="code-block-pre">import requests
 
-r = requests.get(
+resp = requests.get(
     "${esc(baseUrl)}/status",
     headers={"X-API-Key": "${esc(sampleKey)}"},
+    timeout=10,
 )
-print(r.status_code, r.json())</pre>
+print(resp.status_code, resp.json())</pre>
           </div>
         </div>
       </div>
@@ -248,18 +288,19 @@ print(r.status_code, r.json())</pre>
     <section class="section">
       <div class="container">
         <div class="section-header reveal">
-          <span class="section-kicker">FAQ</span>
+          <span class="section-kicker">Frequently Asked</span>
           <h2 class="section-title">Common Questions</h2>
+          <p class="section-sub">Everything you need to know about keys, billing, quotas, and upstream proxying.</p>
         </div>
         <div class="faq-list">
           ${faqs
-            .slice(0, 4)
+            .slice(0, 5)
             .map(
               (item, idx) => `
-              <div class="glass-card faq-item reveal ${idx === 0 ? "open" : ""}">
+              <div class="faq-item reveal ${idx === 0 ? "open" : ""}">
                 <button class="faq-btn" type="button">
                   <span>${esc(item.q)}</span>
-                  <span style="font-size:18px;font-weight:700;">${idx === 0 ? "−" : "+"}</span>
+                  <span style="font-size:18px;font-weight:700;color:var(--neon-cyan);">${idx === 0 ? "−" : "+"}</span>
                 </button>
                 <div class="faq-answer">${esc(item.a)}</div>
               </div>`
@@ -271,28 +312,28 @@ print(r.status_code, r.json())</pre>
 
     <section class="section" id="section-support">
       <div class="container support-grid reveal">
-        <div class="glass-card" style="padding:28px;">
-          <span class="section-kicker">Support</span>
-          <h2 style="margin:0 0 10px;">Talk to ${esc(brand.companyName)}</h2>
-          <p style="color:var(--text-muted);font-size:14.5px;margin:0 0 20px;">
-            Questions about enterprise limits, custom upstreams, or Razorpay billing? Reach our team anytime.
+        <div class="glass-card" style="padding:32px;">
+          <span class="section-kicker">Support &amp; Inquiries</span>
+          <h2 style="margin:0 0 12px;color:#ffffff;">Talk to ${esc(brand.companyName)}</h2>
+          <p style="color:var(--text-secondary);font-size:14.5px;line-height:1.6;margin:0 0 24px;">
+            Questions about enterprise limits, custom upstreams, high-volume quotas, or Razorpay billing? Reach our engineering team directly.
           </p>
-          <div style="display:flex;flex-direction:column;gap:12px;font-size:14px;">
-            <div><strong>Gateway URL:</strong> <span class="mono">${esc(baseUrl)}</span></div>
-            <div><strong>Email:</strong> ${esc(brand.supportEmail)}</div>
-            <div><strong>Admin Portal:</strong> <a href="#admin/login" data-nav="#admin/login">Administrator Sign In →</a></div>
+          <div style="display:flex;flex-direction:column;gap:14px;font-size:14px;">
+            <div><strong style="color:#ffffff;">Gateway URL:</strong> <span class="mono" style="color:var(--neon-cyan);">${esc(baseUrl)}</span></div>
+            <div><strong style="color:#ffffff;">Support Email:</strong> <a href="mailto:${esc(brand.supportEmail)}">${esc(brand.supportEmail)}</a></div>
+            <div><strong style="color:#ffffff;">Admin Portal:</strong> <a href="#admin/login" data-nav="#admin/login">Administrator Sign In →</a></div>
           </div>
         </div>
 
-        <div class="glass-card" style="padding:28px;">
-          <h3 style="margin:0 0 16px;">Send a Message</h3>
+        <div class="glass-card" style="padding:32px;">
+          <h3 style="margin:0 0 18px;color:#ffffff;">Send a Message</h3>
           <form id="support-form">
             <div class="two-col">
               <div class="field"><label>Name</label><input class="input" id="sup-name" required value="${esc(state.user?.full_name || "")}" placeholder="Your name" /></div>
               <div class="field"><label>Email</label><input class="input" type="email" id="sup-email" required value="${esc(state.user?.email || "")}" placeholder="you@company.com" /></div>
             </div>
-            <div class="field"><label>Subject</label><input class="input" id="sup-subject" required placeholder="Plan upgrade / API help" /></div>
-            <div class="field"><label>Message</label><textarea class="textarea" id="sup-message" required minlength="10" placeholder="How can we help?"></textarea></div>
+            <div class="field"><label>Subject</label><input class="input" id="sup-subject" required placeholder="Plan upgrade / Media API / Upstream help" /></div>
+            <div class="field"><label>Message</label><textarea class="textarea" id="sup-message" required minlength="10" placeholder="How can our gateway team assist you today?"></textarea></div>
             <button type="submit" class="btn btn-primary" id="sup-submit">Send Message</button>
           </form>
         </div>
@@ -300,9 +341,12 @@ print(r.status_code, r.json())</pre>
     </section>
 
     <footer class="footer">
-      <div class="container" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;font-size:13.5px;color:var(--text-muted);">
-        <div><strong style="color:#0a0a0a;">${esc(brand.appName)}</strong> · ${esc(brand.companyName)}</div>
-        <div style="display:flex;gap:18px;flex-wrap:wrap;">
+      <div class="container" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:18px;font-size:13.5px;color:var(--text-muted);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="brand-icon" style="width:28px;height:28px;font-size:13px;">${esc(brand.brandLetter || "A")}</span>
+          <div><strong style="color:#ffffff;">${esc(brand.appName)}</strong> · ${esc(brand.companyName)}</div>
+        </div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
           <a href="#pricing" data-nav="#pricing">Pricing</a>
           <a href="#docs" data-nav="#docs">Docs</a>
           <a href="#playground" data-nav="#playground">Playground</a>

@@ -7,6 +7,7 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.cache import invalidate_branding_cache, invalidate_plans_cache
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import decrypt_secret, encrypt_secret, mask_secret, utc_now
@@ -287,6 +288,7 @@ def admin_create_plan(
     record_audit(db, "admin.plan_created", admin.email, admin.id, "plan", plan.id, {"slug": plan.slug}, get_client_ip(request))
     db.commit()
     db.refresh(plan)
+    invalidate_plans_cache()
     return plan
 
 
@@ -307,6 +309,7 @@ def admin_update_plan(
     record_audit(db, "admin.plan_updated", admin.email, admin.id, "plan", plan.id, updates, get_client_ip(request))
     db.commit()
     db.refresh(plan)
+    invalidate_plans_cache()
     return plan
 
 
@@ -325,10 +328,12 @@ def admin_delete_or_archive_plan(
         plan.is_active = False
         record_audit(db, "admin.plan_archived", admin.email, admin.id, "plan", plan.id, {}, get_client_ip(request))
         db.commit()
+        invalidate_plans_cache()
         return {"message": "Plan has historical subscriptions and was archived (marked inactive)."}
     db.delete(plan)
     record_audit(db, "admin.plan_deleted", admin.email, admin.id, "plan", plan_id, {}, get_client_ip(request))
     db.commit()
+    invalidate_plans_cache()
     return {"message": "Plan permanently deleted."}
 
 
@@ -753,6 +758,7 @@ def update_admin_branding(
         get_client_ip(request),
     )
     db.commit()
+    invalidate_branding_cache()
     return {"message": "Site & API branding saved live.", "branding": get_effective_branding(db)}
 
 
@@ -767,5 +773,6 @@ def reset_admin_branding(
         db.delete(row)
         record_audit(db, "admin.branding_reset", admin.email, admin.id, "site_branding_config", "1", {}, get_client_ip(request))
         db.commit()
+    invalidate_branding_cache()
     return {"message": "Branding reset to .env defaults.", "branding": get_effective_branding(db)}
 

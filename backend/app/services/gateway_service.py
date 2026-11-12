@@ -82,6 +82,27 @@ class SlidingWindowRateLimiter:
             self._buckets.clear()
 
 
+_upstream_clients: Dict[float, httpx.AsyncClient] = {}
+_upstream_lock = threading.Lock()
+
+
+def _get_upstream_http_client(timeout_sec: float) -> httpx.AsyncClient:
+    """Thread-safe persistent HTTP client pool for upstream requests with connection keep-alive."""
+    key = round(timeout_sec, 1)
+    client = _upstream_clients.get(key)
+    if client is None or client.is_closed:
+        with _upstream_lock:
+            client = _upstream_clients.get(key)
+            if client is None or client.is_closed:
+                client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(timeout_sec, connect=5.0),
+                    limits=httpx.Limits(max_keepalive_connections=50, max_connections=200, keepalive_expiry=30.0),
+                    follow_redirects=True,
+                )
+                _upstream_clients[key] = client
+    return client
+
+
 rate_limiter = SlidingWindowRateLimiter()
 
 
@@ -1053,13 +1074,13 @@ async def _execute_gateway_pipeline(
 
     timeout_sec = max(1.0, (gw.timeout_ms if gw else 10000) / 1000.0)
     try:
-        async with httpx.AsyncClient(timeout=timeout_sec) as client:
-            upstream_resp = await client.request(
-                method=upper_method,
-                url=target_url,
-                headers=forward_headers,
-                content=body_bytes if body_bytes else None,
-            )
+        client = _get_upstream_http_client(timeout_sec)
+        upstream_resp = await client.request(
+            method=upper_method,
+            url=target_url,
+            headers=forward_headers,
+            content=body_bytes if body_bytes else None,
+        )
         latency = (time.perf_counter() - started) * 1000
         _log_gateway_request(
             db,

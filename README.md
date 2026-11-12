@@ -14,7 +14,8 @@
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy" />
   <img src="https://img.shields.io/badge/Razorpay-HMAC--SHA256-072654?style=for-the-badge&logo=razorpay&logoColor=3395FF" alt="Razorpay" />
   <img src="https://img.shields.io/badge/OAuth%202.0-Google-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google OAuth" />
-  <img src="https://img.shields.io/badge/Pytest-21%2F21%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 21/21 Passing" />
+  <img src="https://img.shields.io/badge/Pytest-24%2F24%20Passed-10B981?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest 24/24 Passing" />
+  <img src="https://img.shields.io/badge/Compression-GZip%20%2B%20TTL%20Cache-00F2FE?style=for-the-badge&logo=fastapi&logoColor=black" alt="GZip + TTL Cache" />
 </p>
 
 <!-- Interactive Quick Navigation Bar -->
@@ -81,6 +82,26 @@
         <li>Connect <strong>@BotFather Telegram Bots</strong> straight from Dashboard &amp; Admin Panel (Webhooks + Polling).</li>
         <li>Live <strong>Site &amp; API Branding Editor</strong> with real-time preview &amp; one-click <code>.env</code> reset.</li>
         <li>Custom <code>APP_NAME</code>, <code>COMPANY_NAME</code>, key prefixes, receipt codes &amp; dynamic SVG favicon.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>⚡ High-Throughput &amp; Latency Optimization</h3>
+      <ul>
+        <li><strong>In-Memory TTL Cache</strong>: Thread-safe caching for hot public endpoints (<code>/api/public/overview</code>, <code>/api/plans</code>, branding) with instant cache invalidation on admin edits.</li>
+        <li><strong>GZip Compression Middleware</strong>: Automatic gzip compression for all payloads > 1KB (media search & metadata results).</li>
+        <li><strong>Persistent Connection Pooling</strong>: Reusable <code>httpx.AsyncClient</code> pool with keep-alive across concurrent proxy requests to prevent socket churn.</li>
+        <li><strong>Composite DB Indexes</strong>: Fast analytics queries via composite indexes on <code>api_request_logs</code> (<code>user_id + created_at</code>, <code>api_key_id + created_at</code>).</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🎵 Built-In YouTube &amp; Media Downloader</h3>
+      <ul>
+        <li>Direct <code>/v1/media/search</code>, <code>/v1/media/info</code>, <code>/v1/media/audio</code>, and <code>/v1/media/video</code> endpoints.</li>
+        <li>High-speed audio transcode (MP3/M4A up to 320kbps) &amp; video muxing (1080p/720p/360p MP4).</li>
+        <li>Encrypted Netscape YouTube cookies with automatic rotation and bot verification bypass.</li>
+        <li>Signed binary token downloads with one-time verification.</li>
       </ul>
     </td>
   </tr>

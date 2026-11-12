@@ -35,7 +35,7 @@ export function renderNavbar(state, handlers) {
       </button>
       ${
         user.role === "admin"
-          ? `<button class="btn btn-secondary btn-sm desktop-only" style="border-color:#0a0a0a;font-weight:700;" data-nav="#admin">Admin Portal</button>`
+          ? `<button class="btn btn-secondary btn-sm desktop-only" style="border-color:var(--neon-cyan);color:var(--neon-cyan);font-weight:700;" data-nav="#admin">Admin Portal</button>`
           : ""
       }
       <button class="btn btn-ghost btn-sm desktop-only" id="btn-nav-logout">Logout</button>

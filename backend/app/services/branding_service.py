@@ -4,14 +4,25 @@ from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.cache import get_branding_cache, invalidate_branding_cache
 from app.core.config import Settings, get_settings
 from app.models.gateway import SiteBrandingConfig
 
 
 def get_effective_branding(db: Optional[Session] = None, settings: Optional[Settings] = None) -> Dict[str, str]:
     cfg = settings or get_settings()
+
+    # If no db session passed, return settings-based branding (cached if available)
+    cache = get_branding_cache()
+    cached = cache.get("effective_branding")
+    if cached is not None and db is None:
+        return cached
+
     row = None
     if db is not None:
+        # Check cache first to avoid repetitive DB query
+        if cached is not None:
+            return cached
         try:
             row = db.get(SiteBrandingConfig, 1)
         except Exception:
@@ -51,7 +62,7 @@ def get_effective_branding(db: Optional[Session] = None, settings: Optional[Sett
         else (cfg.RECEIPT_PREFIX or "API").strip().upper()
     )
 
-    return {
+    branding_data = {
         "app_name": app_name,
         "company_name": company_name,
         "brand_letter": brand_letter,
@@ -73,4 +84,7 @@ def get_effective_branding(db: Optional[Session] = None, settings: Optional[Sett
             row.receipt_prefix.strip(),
         ])),
     }
+    cache.set("effective_branding", branding_data, ttl=60.0)
+    return branding_data
+
 
