@@ -9,7 +9,7 @@ import sys
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 from sqlalchemy import select
@@ -20,7 +20,21 @@ from app.core.database import SessionLocal, ensure_db_ready, get_db, get_db_init
 from app.routers import admin, auth, gateway, keys, payments, plans, playground, public, telegram
 from app.services.branding_service import get_effective_branding
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
+
+def _find_frontend_dir() -> Path:
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent / "frontend",
+        Path(__file__).resolve().parent.parent / "frontend",
+        Path.cwd() / "frontend",
+        Path("/app/frontend"),
+    ]
+    for c in candidates:
+        if c.exists() and (c / "index.html").exists():
+            return c
+    return candidates[0]
+
+
+FRONTEND_DIR = _find_frontend_dir()
 
 
 @asynccontextmanager
@@ -170,10 +184,17 @@ def create_app() -> FastAPI:
                 "Purchase high-throughput API access plans, manage isolated developer keys linked to Sonic Network's Master Gateway, test live endpoints, and scale seamlessly with Razorpay.",
                 meta_desc,
             )
-            return HTMLResponse(content=rendered)
+            resp = HTMLResponse(content=rendered)
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
     else:
         @app.get("/")
-        def api_root():
+        def api_root(request: Request):
+            accept = request.headers.get("accept", "")
+            if "text/html" in accept and cfg.effective_frontend_url:
+                return RedirectResponse(url=cfg.effective_frontend_url, status_code=302)
             return JSONResponse(
                 {
                     "service": cfg.APP_NAME,

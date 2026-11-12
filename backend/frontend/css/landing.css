@@ -1,0 +1,569 @@
+/* YouTube-Realistic Black & White Theme — Landing & Media Showcase Styles */
+
+/* Chips Bar (Authentic YouTube Filter Bar) */
+.yt-chips-container {
+  border-bottom: 1px solid #272727;
+  background: #0f0f0f;
+  position: sticky;
+  top: 64px;
+  z-index: 40;
+  padding: 10px 0;
+}
+
+.yt-chips-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 0;
+}
+
+.yt-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.yt-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #272727;
+  color: #f1f1f1;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.yt-chip:hover {
+  background: #383838;
+}
+
+.yt-chip.active {
+  background: #f1f1f1;
+  color: #0f0f0f;
+  font-weight: 600;
+}
+
+/* Hero Section */
+.hero {
+  padding: 48px 0 36px;
+  text-align: center;
+}
+
+.hero-content {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  background: #212121;
+  border: 1px solid #303030;
+  color: #aaaaaa;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hero-eyebrow .yt-icon-bullet {
+  color: #ff0000;
+  font-size: 14px;
+}
+
+.hero-title {
+  font-size: clamp(2.2rem, 4.4vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  margin: 0 0 16px;
+}
+
+.hero-desc {
+  font-size: 16px;
+  color: #aaaaaa;
+  line-height: 1.6;
+  margin: 0 auto 28px;
+  max-width: 680px;
+}
+
+/* Hero Interactive YouTube Search & Downloader Bar */
+.hero-search-wrapper {
+  max-width: 720px;
+  margin: 0 auto 36px;
+}
+
+.hero-search-box {
+  display: flex;
+  align-items: center;
+  background: #121212;
+  border: 1px solid #383838;
+  border-radius: 40px;
+  padding: 4px 6px 4px 18px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero-search-box:focus-within {
+  border-color: #3ea6ff;
+  box-shadow: 0 0 0 1px #3ea6ff;
+}
+
+.hero-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 15px;
+  font-family: inherit;
+  padding: 10px 0;
+}
+
+.hero-search-input::placeholder {
+  color: #717171;
+}
+
+.hero-search-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hero-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 20px 0 0;
+  border-top: 1px solid #272727;
+}
+
+.hero-metric-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.hero-metric-lbl {
+  font-size: 12px;
+  color: #717171;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Shelf Section Header (YouTube Shelves) */
+.yt-shelf {
+  padding: 36px 0;
+}
+
+.yt-shelf-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.yt-shelf-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.yt-shelf-sub {
+  font-size: 13px;
+  color: #aaaaaa;
+}
+
+/* Realistic YouTube Video Card Grid */
+.yt-video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+.yt-video-card {
+  display: flex;
+  flex-direction: column;
+  background: #181818;
+  border: 1px solid #272727;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  cursor: pointer;
+}
+
+.yt-video-card:hover {
+  background: #202020;
+  border-color: #383838;
+  transform: translateY(-2px);
+}
+
+.yt-thumb-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  overflow: hidden;
+}
+
+.yt-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.yt-video-card:hover .yt-thumb-img {
+  transform: scale(1.03);
+}
+
+.yt-duration-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.yt-card-body {
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+}
+
+.yt-channel-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #272727;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+  border: 1px solid #383838;
+}
+
+.yt-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.yt-video-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #f1f1f1;
+  line-height: 1.35;
+  margin: 0 0 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.yt-channel-name {
+  font-size: 13px;
+  color: #aaaaaa;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.yt-verified-icon {
+  color: #aaaaaa;
+  display: inline-flex;
+}
+
+.yt-video-stats {
+  font-size: 12px;
+  color: #717171;
+  margin-bottom: 10px;
+}
+
+.yt-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid #272727;
+}
+
+.yt-action-chip {
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: #272727;
+  color: #f1f1f1;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid #383838;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  font-family: inherit;
+}
+
+.yt-action-chip:hover {
+  background: #383838;
+  border-color: #555555;
+}
+
+.yt-action-chip.primary {
+  background: #f1f1f1;
+  color: #0f0f0f;
+  border-color: #ffffff;
+}
+
+.yt-action-chip.primary:hover {
+  background: #ffffff;
+}
+
+/* Developer Studio Terminal (YouTube Studio Black Theme) */
+.terminal-card {
+  background: #181818;
+  border: 1px solid #272727;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #212121;
+  border-bottom: 1px solid #272727;
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #383838;
+}
+
+.terminal-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-tab {
+  background: transparent;
+  border: none;
+  color: #aaaaaa;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.terminal-tab.active {
+  background: #272727;
+  color: #ffffff;
+}
+
+.terminal-body {
+  padding: 18px;
+  background: #000000;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #f1f1f1;
+  overflow-x: auto;
+}
+
+.code-cmt { color: #717171; }
+.code-str { color: #3ea6ff; }
+.code-key { color: #f1f1f1; font-weight: 600; }
+.code-num { color: #2ba640; }
+
+/* Features Grid */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.feature-card {
+  background: #181818;
+  border: 1px solid #272727;
+  border-radius: 12px;
+  padding: 22px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.feature-card:hover {
+  background: #202020;
+  border-color: #383838;
+}
+
+.feature-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #272727;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.feature-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 8px;
+}
+
+.feature-desc {
+  font-size: 13.5px;
+  color: #aaaaaa;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Pricing Plans (YouTube Premium Style) */
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.plan-card {
+  background: #181818;
+  border: 1px solid #272727;
+  border-radius: 12px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.plan-card:hover {
+  transform: translateY(-2px);
+  border-color: #404040;
+}
+
+.plan-card.featured {
+  border-color: #f1f1f1;
+  background: #212121;
+}
+
+.plan-tag {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #0f0f0f;
+}
+
+.plan-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 6px;
+}
+
+.plan-desc {
+  font-size: 13px;
+  color: #aaaaaa;
+  margin: 0 0 16px;
+  min-height: 38px;
+}
+
+.plan-price-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.plan-price {
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.plan-cycle {
+  font-size: 13px;
+  color: #717171;
+}
+
+.plan-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  flex: 1;
+}
+
+.plan-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: #f1f1f1;
+  margin-bottom: 10px;
+}
+
+.plan-feature-icon {
+  color: #2ba640;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .hero-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .yt-video-grid {
+    grid-template-columns: 1fr;
+  }
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+}

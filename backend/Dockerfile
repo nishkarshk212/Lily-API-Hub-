@@ -19,6 +19,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+COPY frontend ./frontend
 COPY telegram_bot_worker.py .
 
 EXPOSE 8000
