@@ -155,6 +155,8 @@ def create_app() -> FastAPI:
             app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
         if (FRONTEND_DIR / "js").exists():
             app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
+        if (FRONTEND_DIR / "sdk").exists():
+            app.mount("/sdk", StaticFiles(directory=FRONTEND_DIR / "sdk"), name="sdk")
 
         @app.get("/config.js", include_in_schema=False)
         def serve_config_js():

@@ -77,13 +77,20 @@ def build_key_record(
     is_free_tier: bool = False,
 ) -> Tuple[ApiKey, str]:
     brand = get_effective_branding(db)
-    prefix = brand["api_key_prefix_test"] if is_free_tier else brand["api_key_prefix_live"]
-    raw_key = generate_api_key_secret(prefix=prefix)
+    user = db.get(User, user_id)
+    sub = db.get(Subscription, subscription_id)
+    plan = db.get(SubscriptionPlan, sub.plan_id) if sub else None
+
+    user_info = (user.email.split("@")[0] if user and user.email else (user.full_name if user else user_id)) if user else user_id
+    plan_info = (plan.slug or plan.name) if plan else ("free" if is_free_tier else "pro")
+
+    raw_key = generate_api_key_secret(prefix="betaapi", user_info=user_info, plan_info=plan_info)
+    prefix_str = raw_key.rsplit("+", 1)[0] + "+" if "+" in raw_key else raw_key[:16]
     record = ApiKey(
         user_id=user_id,
         subscription_id=subscription_id,
         name=name.strip()[:80] or "Primary API Key",
-        key_prefix=raw_key[: len(prefix) + 4],
+        key_prefix=prefix_str[:24],
         key_last4=raw_key[-4:],
         key_hash=sha256_hex(raw_key),
         encrypted_key=encrypt_secret(raw_key),
@@ -361,9 +368,11 @@ def regenerate_user_key(db: Session, user: User, key_id: str) -> Tuple[ApiKey, s
 
     brand = get_effective_branding(db)
     plan = db.get(SubscriptionPlan, sub.plan_id)
-    prefix = brand["api_key_prefix_test"] if (plan and plan.price_paise == 0) else brand["api_key_prefix_live"]
-    new_raw = generate_api_key_secret(prefix=prefix)
-    key.key_prefix = new_raw[: len(prefix) + 4]
+    user_info = (user.email.split("@")[0] if user and user.email else user.id) if user else "user"
+    plan_info = (plan.slug or plan.name) if plan else ("free" if (plan and plan.price_paise == 0) else "pro")
+    new_raw = generate_api_key_secret(prefix="betaapi", user_info=user_info, plan_info=plan_info)
+    prefix_str = new_raw.rsplit("+", 1)[0] + "+" if "+" in new_raw else new_raw[:16]
+    key.key_prefix = prefix_str[:24]
     key.key_last4 = new_raw[-4:]
     key.key_hash = sha256_hex(new_raw)
     key.encrypted_key = encrypt_secret(new_raw)

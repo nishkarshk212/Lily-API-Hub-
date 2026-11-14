@@ -53,6 +53,7 @@ export function renderDocsPage(state, handlers) {
         <button class="docs-nav-item active" data-doc-jump="doc-auth">Authentication</button>
         <button class="docs-nav-item" data-doc-jump="doc-headers">Rate Limit & Quota Headers</button>
         <button class="docs-nav-item" data-doc-jump="doc-endpoints">Endpoints Reference</button>
+        <button class="docs-nav-item" data-doc-jump="doc-music-bot">Telegram Music Bot (youtube.py)</button>
         <button class="docs-nav-item" data-doc-jump="doc-telegram">Telegram Bot Features</button>
         <button class="docs-nav-item" data-doc-jump="doc-errors">Error Codes</button>
         <button class="docs-nav-item" data-doc-jump="doc-guides">Integration Guide</button>
@@ -139,6 +140,59 @@ Authorization: Bearer ${esc(sampleDocsKey)}</pre>
             .join("")}
         </section>
 
+        <section id="doc-music-bot" class="glass-card panel-card">
+          <div class="panel-head">
+            <div>
+              <h2>Telegram Music Bot Integration (<code>youtube.py</code>)</h2>
+              <p style="margin:4px 0 0;color:var(--text-muted);font-size:13.5px;">
+                Drop-in Python client module for Telegram music bots (Yukki, PyTgCalls, AnonX, Pyrogram, Telethon, python-telegram-bot) to search, stream, and download 320kbps MP3 tracks.
+              </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <a class="btn btn-primary btn-sm" href="/sdk/youtube.py" download="youtube.py" id="docs-download-yt-py">⬇ Download youtube.py</a>
+              <button class="btn btn-secondary btn-sm" id="docs-copy-yt-py">Copy Code</button>
+            </div>
+          </div>
+
+          <div style="margin:16px 0;padding:14px;background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:10px;">
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#fff;">🔑 API Key Format: <code>betaapi+&lt;user info&gt;+&lt;plan info&gt;+&lt;entropy&gt;</code></div>
+            <p style="margin:0;font-size:13px;color:var(--text-muted);line-height:1.5;">
+              Generated developer keys include your user identifier and plan tier encoded directly into the key (e.g. <code>betaapi+john+pro+a9b8c7d6e5f412345678</code> or <code>beta_test_...</code>). Pass it via the <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key</code> header.
+            </p>
+          </div>
+
+          <div style="font-size:13.5px;font-weight:600;margin:18px 0 8px;color:#fff;">1. Quick Terminal Download via cURL</div>
+          <div class="code-block-wrap" style="margin-bottom:16px;">
+            <pre class="code-block-pre">curl -s -O "${esc(baseUrl.replace('/v1', ''))}/sdk/youtube.py"</pre>
+          </div>
+
+          <div style="font-size:13.5px;font-weight:600;margin:18px 0 8px;color:#fff;">2. Telegram Music Bot Usage Example (Pyrogram / Telethon)</div>
+          <div class="code-block-wrap">
+            <pre class="code-block-pre"><span class="code-cmt"># Set environment variable or pass key to YouTubeClient</span>
+<span class="code-cmt"># export BETA_API_KEY="betaapi+user+plan+your_secret_entropy"</span>
+
+<span class="code-key">from</span> youtube <span class="code-key">import</span> download_audio_async, get_track_async, get_stream_url_async
+
+<span class="code-cmt"># Example Pyrogram command handler:</span>
+<span class="code-key">@app.on_message</span>(filters.command(<span class="code-str">"play"</span>))
+<span class="code-key">async def</span> play_command(client, message):
+    query = message.text.split(maxsplit=<span class="code-num">1</span>)[<span class="code-num">1</span>]
+    status_msg = <span class="code-key">await</span> message.reply_text(<span class="code-str">"🔍 Searching song on YouTube..."</span>)
+
+    <span class="code-cmt"># 1. Download 320kbps MP3 audio file directly</span>
+    file_path, track = <span class="code-key">await</span> download_audio_async(query, bitrate=<span class="code-num">320</span>)
+
+    <span class="code-cmt"># 2. Send audio to Telegram chat</span>
+    <span class="code-key">await</span> status_msg.edit_text(<span class="code-str">f"▶ Sending {track['title']} ({track['duration_string']})..."</span>)
+    <span class="code-key">await</span> message.reply_audio(
+        audio=file_path,
+        title=track.get(<span class="code-str">"title"</span>),
+        performer=track.get(<span class="code-str">"channel"</span>),
+        duration=track.get(<span class="code-str">"duration_seconds"</span>),
+    )</pre>
+          </div>
+        </section>
+
         <section id="doc-telegram" class="glass-card panel-card">
           <div class="panel-head">
             <div>
@@ -201,6 +255,15 @@ Authorization: Bearer ${esc(sampleDocsKey)}</pre>
   document.getElementById("docs-copy-base")?.addEventListener("click", () => copyToClipboard(baseUrl, "Base URL copied!"));
   document.getElementById("docs-goto-playground")?.addEventListener("click", () => handlers.navigate("#playground"));
   document.getElementById("docs-goto-telegram")?.addEventListener("click", () => handlers.navigate("#dashboard?tab=telegram"));
+  document.getElementById("docs-copy-yt-py")?.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/sdk/youtube.py");
+      const text = await res.text();
+      copyToClipboard(text, "youtube.py code copied to clipboard!");
+    } catch {
+      copyToClipboard('curl -s -O "https://lily-api-hub-production.up.railway.app/sdk/youtube.py"', "Download command copied!");
+    }
+  });
 
   root.querySelectorAll("[data-doc-jump]").forEach((btn) => {
     btn.addEventListener("click", () => {

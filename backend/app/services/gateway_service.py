@@ -114,8 +114,7 @@ def extract_api_key_from_headers(headers: Dict[str, str], db: Optional[Session] 
     auth = lowered.get("authorization", "").strip()
     if auth:
         candidate = auth[7:].strip() if auth.lower().startswith("bearer ") else auth
-        brand = get_effective_branding(db)
-        if candidate.startswith((brand["api_key_prefix_live"], brand["api_key_prefix_test"], "beta_", "lily_")) or "_" in candidate:
+        if candidate:
             return candidate
     return None
 

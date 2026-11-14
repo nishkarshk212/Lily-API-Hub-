@@ -4,6 +4,7 @@ import base64
 from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
+import re
 import secrets
 from typing import Any, Dict, Optional
 
@@ -37,9 +38,15 @@ def sha256_hex(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def generate_api_key_secret(prefix: str = "beta_live_") -> str:
-    # 32 bytes -> ~43 URL-safe chars; clear prefix + high entropy.
-    return f"{prefix}{secrets.token_urlsafe(32)}"
+def generate_api_key_secret(
+    prefix: str = "betaapi",
+    user_info: Optional[str] = None,
+    plan_info: Optional[str] = None,
+) -> str:
+    user_slug = re.sub(r"[^a-zA-Z0-9]", "", str(user_info or "user")).lower()[:12] or "user"
+    plan_slug = re.sub(r"[^a-zA-Z0-9]", "", str(plan_info or "free")).lower()[:12] or "free"
+    entropy = secrets.token_hex(12)
+    return f"betaapi+{user_slug}+{plan_slug}+{entropy}"
 
 
 def generate_random_token(nbytes: int = 32) -> str:
