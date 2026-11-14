@@ -61,12 +61,13 @@ export function openAuthModal({
   const root = document.getElementById("modal-root");
   if (!root) return;
 
-  let currentMode = mode;
+  let currentMode = mode === "signup" ? "register" : mode;
 
   const render = () => {
     const titles = {
       login: [`Sign In to ${brand.appName}`, "Access your developer keys, quotas, and Razorpay billing."],
       register: [`Create Your ${brand.companyName} Account`, "Start with a free sandbox key or unlock production scale."],
+      signup: [`Create Your ${brand.companyName} Account`, "Start with a free sandbox key or unlock production scale."],
       forgot: ["Reset Password", "Enter your account email to receive a password reset link."],
       reset: ["Choose a New Password", "Set a strong password with at least 8 characters, letters, and numbers."],
     };

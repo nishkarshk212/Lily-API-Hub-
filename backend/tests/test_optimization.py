@@ -73,3 +73,4 @@ def test_gzip_compression_on_large_payloads(client):
     assert resp.status_code == 200
     # In starlette TestClient, gzip middleware sets Content-Encoding or decompresses automatically
     assert resp.headers.get("Content-Encoding") == "gzip" or resp.json().get("brand") is not None
+

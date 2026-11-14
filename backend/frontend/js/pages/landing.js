@@ -221,9 +221,10 @@ curl -s "${esc(baseUrl)}/status" \\
         </div>
 
         <div class="hero-cta-row">
-          <button class="btn btn-primary" data-nav="#pricing">View Access Plans</button>
-          <button class="btn btn-secondary" data-nav="#playground">Open Live Playground</button>
-          <button class="btn btn-ghost" data-nav="#docs">API Documentation →</button>
+          <button class="btn btn-primary" id="hero-btn-get-key">Get API Key</button>
+          <button class="btn btn-secondary" data-nav="#pricing">View Access Plans</button>
+          <button class="btn btn-secondary" data-nav="#playground">Live Playground</button>
+          <button class="btn btn-ghost" data-nav="#docs">Documentation →</button>
         </div>
 
         <div class="hero-metrics">
@@ -415,6 +416,15 @@ curl -s "${esc(baseUrl)}/status" \\
       const target = el.getAttribute("data-nav");
       handlers.navigate(target);
     });
+  });
+
+  // Hero Get API Key button
+  document.getElementById("hero-btn-get-key")?.addEventListener("click", () => {
+    if (state.user) {
+      handlers.navigate("#dashboard");
+    } else {
+      handlers.openAuthModal("signup");
+    }
   });
 
   // Attach Buy Plan listeners

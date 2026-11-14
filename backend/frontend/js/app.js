@@ -93,9 +93,10 @@ const handlers = {
   },
 
   openAuth(mode = "login", resetToken = "", onSuccess = null) {
+    const normalizedMode = mode === "signup" ? "register" : mode;
     const brand = getBrand(state);
     openAuthModal({
-      mode,
+      mode: normalizedMode,
       brand,
       googleEnabled: Boolean(state.overview?.google_oauth_enabled),
       resetToken,
@@ -105,10 +106,21 @@ const handlers = {
         if (onSuccess) {
           await onSuccess();
         } else {
+          window.location.hash = "#dashboard";
           await renderCurrentRoute();
         }
       },
     });
+  },
+
+  openAuthModal(mode = "login", resetToken = "", onSuccess = null) {
+    return handlers.openAuth(mode, resetToken, onSuccess);
+  },
+
+  handlePurchase(plan) {
+    if (!plan) return;
+    const planId = typeof plan === "object" ? plan.id : plan;
+    return handlers.purchasePlan(planId, "new");
   },
 
   async logout() {
