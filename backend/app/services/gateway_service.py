@@ -53,6 +53,11 @@ BUILTIN_ENDPOINT_PATHS = [
     "/v1/media/video",
     "/v1/media/download",
     "/v1/media/file",
+    "/v1/audio",
+    "/v1/video",
+    "/v1/download",
+    "/v1/search",
+    "/v1/info",
 ]
 
 
@@ -502,54 +507,77 @@ async def _handle_media_gateway_action(
             )
             status_out, resp_out = 200, _json_gateway_result(200, payload, headers={**common_headers, "X-Gateway-Mode": "builtin"})
         else:
-            effective_action = token_data.get("t", "audio") if (media_action == "file" and token_data) else media_action
-            prepared = await prepare_media_download(
-                db,
-                action=effective_action,
-                params=params,
-                api_key_id=api_key.id,
-                public_base_url=public_origin,
-                range_header=range_header,
-                settings=cfg,
-            )
-            if prepared.mode == "json" or not allow_streaming:
-                status_out = prepared.status_code
+            if full_path in ("/v1/audio", "/v1/video", "/v1/video/hq") or params.get("mode") == "json" or "application/json" in headers_map.get("accept", "").lower():
+                vid_target = str(params.get("id") or params.get("video_id") or params.get("url") or "")
+                audio_dl_url = f"{public_origin}/v1/media/audio?id={vid_target}&format=mp3&bitrate=320"
+                video_dl_url = f"{public_origin}/v1/media/video?id={vid_target}&quality=720p&format=mp4"
+                railway_compat_payload = {
+                    "success": True,
+                    "id": vid_target,
+                    "audio": {
+                        "best_audio": {"url": audio_dl_url},
+                        "audio_streams": [{"url": audio_dl_url, "quality": "320kbps", "ext": "mp3"}],
+                    },
+                    "video": {
+                        "best_video": {"url": video_dl_url},
+                        "video_streams": [{"url": video_dl_url, "quality": "720p", "ext": "mp4"}],
+                    },
+                }
+                status_out = 200
                 resp_out = _json_gateway_result(
-                    status_out,
-                    prepared.json_payload or {},
+                    200,
+                    railway_compat_payload,
                     headers={**common_headers, "X-Gateway-Mode": "builtin"},
                 )
             else:
-                stream_headers = {**common_headers, "X-Gateway-Mode": "builtin"}
-                stream_resp = await build_media_streaming_response(prepared, headers=stream_headers)
-                latency = (time.perf_counter() - started) * 1000
-                _log_gateway_request(
+                effective_action = token_data.get("t", "audio") if (media_action == "file" and token_data) else media_action
+                prepared = await prepare_media_download(
                     db,
-                    user_id=user.id,
+                    action=effective_action,
+                    params=params,
                     api_key_id=api_key.id,
-                    subscription_id=sub.id,
-                    method=upper_method,
-                    path=full_path,
-                    query_string=logged_query_str,
-                    status_code=stream_resp.status_code,
-                    upstream_status_code=None,
-                    latency_ms=latency,
-                    client_ip=client_ip,
-                    gateway_mode="builtin",
+                    public_base_url=public_origin,
+                    range_header=range_header,
+                    settings=cfg,
                 )
-                await _best_effort_gateway_alert(
-                    db,
-                    user_id=user.id,
-                    full_path=full_path,
-                    status_code=stream_resp.status_code,
-                    error_code=None,
-                    plan_name=plan.name,
-                    daily_limit=plan.daily_request_limit,
-                    daily_rem=daily_rem,
-                    monthly_limit=plan.monthly_request_limit,
-                    monthly_rem=monthly_rem,
-                )
-                return stream_resp
+                if prepared.mode == "json" or not allow_streaming:
+                    status_out = prepared.status_code
+                    resp_out = _json_gateway_result(
+                        status_out,
+                        prepared.json_payload or {},
+                        headers={**common_headers, "X-Gateway-Mode": "builtin"},
+                    )
+                else:
+                    stream_headers = {**common_headers, "X-Gateway-Mode": "builtin"}
+                    stream_resp = await build_media_streaming_response(prepared, headers=stream_headers)
+                    latency = (time.perf_counter() - started) * 1000
+                    _log_gateway_request(
+                        db,
+                        user_id=user.id,
+                        api_key_id=api_key.id,
+                        subscription_id=sub.id,
+                        method=upper_method,
+                        path=full_path,
+                        query_string=logged_query_str,
+                        status_code=stream_resp.status_code,
+                        upstream_status_code=None,
+                        latency_ms=latency,
+                        client_ip=client_ip,
+                        gateway_mode="builtin",
+                    )
+                    await _best_effort_gateway_alert(
+                        db,
+                        user_id=user.id,
+                        full_path=full_path,
+                        status_code=stream_resp.status_code,
+                        error_code=None,
+                        plan_name=plan.name,
+                        daily_limit=plan.daily_request_limit,
+                        daily_rem=daily_rem,
+                        monthly_limit=plan.monthly_request_limit,
+                        monthly_rem=monthly_rem,
+                    )
+                    return stream_resp
 
         latency = (time.perf_counter() - started) * 1000
         _log_gateway_request(
@@ -669,7 +697,12 @@ async def _execute_gateway_pipeline(
         if not api_key:
             return _json_gateway_result(401, {"error": "INVALID_MEDIA_TOKEN", "message": "Media token key no longer exists."})
     else:
-        raw_key = raw_api_key or extract_api_key_from_headers(headers_map, db)
+        raw_key = (
+            raw_api_key
+            or extract_api_key_from_headers(headers_map, db)
+            or query_map.get("api_key")
+            or query_map.get("key")
+        )
         if not raw_key:
             latency = (time.perf_counter() - started) * 1000
             _log_gateway_request(
