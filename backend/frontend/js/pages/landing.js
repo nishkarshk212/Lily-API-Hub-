@@ -339,8 +339,8 @@ curl -s "${esc(baseUrl)}/status" \\
           ${plans
             .map(
               (p) => `
-            <div class="plan-card ${p.slug === "pro-velocity" || p.slug === "enterprise-nova" ? "featured" : ""}">
-              ${p.slug === "enterprise-nova" ? `<span class="plan-tag">Most Popular</span>` : ""}
+            <div class="plan-card ${p.is_featured ? "featured" : ""}">
+              ${p.badge ? `<span class="plan-tag">${esc(p.badge)}</span>` : ""}
               <h3 class="plan-name">${esc(p.name)}</h3>
               <p class="plan-desc">${esc(p.description || "High-throughput API plan")}</p>
               <div class="plan-price-wrap">
@@ -350,26 +350,26 @@ curl -s "${esc(baseUrl)}/status" \\
               <ul class="plan-features-list">
                 <li class="plan-feature-item">
                   <span class="plan-feature-icon">✓</span>
+                  <span><strong>${formatNum(p.monthly_request_limit)}</strong> Song Requests</span>
+                </li>
+                <li class="plan-feature-item">
+                  <span class="plan-feature-icon">✓</span>
                   <span><strong>${formatNum(p.daily_request_limit)}</strong> requests / day</span>
                 </li>
                 <li class="plan-feature-item">
                   <span class="plan-feature-icon">✓</span>
-                  <span><strong>${p.rate_limit_per_minute}</strong> requests / minute</span>
+                  <span><strong>${p.rate_limit_per_minute}</strong> req/min rate limit</span>
                 </li>
                 <li class="plan-feature-item">
                   <span class="plan-feature-icon">✓</span>
-                  <span>Full /v1/media/* Audio & Video Extractor</span>
+                  <span>Up to <strong>${p.max_api_keys}</strong> active API keys</span>
                 </li>
                 <li class="plan-feature-item">
                   <span class="plan-feature-icon">✓</span>
-                  <span>Signed 15-Minute Download Tokens</span>
-                </li>
-                <li class="plan-feature-item">
-                  <span class="plan-feature-icon">✓</span>
-                  <span>Telegram Bot Access Included</span>
+                  <span>320kbps MP3 & Telegram Bot (youtube.py)</span>
                 </li>
               </ul>
-              <button class="btn ${p.slug === "enterprise-nova" ? "btn-primary" : "btn-secondary"}" style="width:100%;" data-buy-plan="${esc(p.id)}">
+              <button class="btn ${p.is_featured ? "btn-primary" : "btn-secondary"}" style="width:100%;" data-buy-plan="${esc(p.id)}">
                 ${p.price_paise === 0 ? "Activate Free Plan" : `Subscribe with Razorpay`}
               </button>
             </div>`
